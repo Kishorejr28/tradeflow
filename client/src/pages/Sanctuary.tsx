@@ -64,15 +64,6 @@ function formatDuration(m: number) {
 }
 
 // ── Audio Engine ──────────────────────────────────────────────────────────────
-
-function getCtx(ref: React.MutableRefObject<AudioContext|null>): AudioContext {
-  if (!ref.current || ref.current.state === 'closed') {
-    ref.current = new AudioContext()
-  }
-  if (ref.current.state === 'suspended') ref.current.resume()
-  return ref.current
-}
-
 // Make noise buffer of a given type
 function noiseBuffer(ctx: AudioContext, type: 'white'|'brown'|'pink', secs = 4): AudioBuffer {
   const n = ctx.sampleRate * secs
@@ -386,16 +377,20 @@ export default function Sanctuary() {
   const durRef     = useRef(duration)
   useEffect(()=>{ durRef.current=duration },[duration])
 
-  function stopAudio() {
+function stopAudio() {
     nodesRef.current.forEach(n=>{ try{n.stop()}catch{} })
     nodesRef.current = []
     cleanupRef.current?.(); cleanupRef.current = undefined
     gainRef.current?.disconnect(); gainRef.current = null
   }
 
-  function startAudio(snd: string, vol: number) {
+  async function startAudio(snd: string, vol: number) {
     stopAudio()
-    const ctx = getCtx(ctxRef)
+    if (!ctxRef.current || ctxRef.current.state === 'closed') {
+      ctxRef.current = new AudioContext()
+    }
+    const ctx = ctxRef.current
+    if (ctx.state === 'suspended') await ctx.resume()
     const g = ctx.createGain(); g.gain.value = vol
     g.connect(ctx.destination); gainRef.current = g
     const result = buildSound(ctx, g, snd)
@@ -403,8 +398,12 @@ export default function Sanctuary() {
     cleanupRef.current = result.cleanup
   }
 
-  function playBell() {
-    const ctx = getCtx(ctxRef)
+  async function playBell() {
+    if (!ctxRef.current || ctxRef.current.state === 'closed') {
+      ctxRef.current = new AudioContext()
+    }
+    const ctx = ctxRef.current
+    if (ctx.state === 'suspended') await ctx.resume()
     const o = ctx.createOscillator(); const g = ctx.createGain()
     o.connect(g); g.connect(ctx.destination)
     o.frequency.value = 528; o.type = 'sine'
@@ -413,18 +412,20 @@ export default function Sanctuary() {
     o.start(); o.stop(ctx.currentTime + 3)
   }
 
-  // Preview a sound for 2 seconds when clicking the sound button
   const previewRef = useRef<SndResult|null>(null)
   const previewGRef = useRef<GainNode|null>(null)
-  function previewSound(snd: string) {
-    // stop any current preview
+  async function previewSound(snd: string) {
     if (previewRef.current) {
       previewRef.current.nodes.forEach(n=>{ try{n.stop()}catch{} })
       previewRef.current.cleanup?.()
       previewGRef.current?.disconnect()
     }
-    const ctx = getCtx(ctxRef)
-    const g = ctx.createGain(); g.gain.value = volume * 0.7
+    if (!ctxRef.current || ctxRef.current.state === 'closed') {
+      ctxRef.current = new AudioContext()
+    }
+    const ctx = ctxRef.current
+    if (ctx.state === 'suspended') await ctx.resume()
+    const g = ctx.createGain(); g.gain.value = volume * 0.8
     g.connect(ctx.destination); previewGRef.current = g
     const result = buildSound(ctx, g, snd)
     previewRef.current = result
@@ -438,11 +439,11 @@ export default function Sanctuary() {
     }, 2600)
   }
 
-  function handleStart() {
+  async function handleStart() {
     const d = durRef.current
     setStarted(true); setRunning(true); setRemaining(d)
-    startAudio(sound, volume)
-    setTimeout(playBell, 200)
+    await startAudio(sound, volume)
+    await playBell()
     tickRef.current = setInterval(()=>{
       setRemaining(r=>{
         if (r<=1) { handleEnd(d); return 0 }
@@ -450,14 +451,14 @@ export default function Sanctuary() {
       })
     }, 1000)
     if (bellsOn && bellSecs>0)
-      bellRef.current = setInterval(playBell, bellSecs*1000)
+      bellRef.current = setInterval(()=>playBell(), bellSecs*1000)
   }
 
-  function handleEnd(completedSecs = durRef.current) {
+  async function handleEnd(completedSecs = durRef.current) {
     setRunning(false); stopAudio()
     if (tickRef.current) clearInterval(tickRef.current)
     if (bellRef.current) clearInterval(bellRef.current)
-    setTimeout(playBell, 100)
+    await playBell()
     const mins = Math.max(1, Math.round(completedSecs/60))
     setStats(saveSession(mins))
   }
@@ -469,12 +470,13 @@ export default function Sanctuary() {
     setRunning(false); setRemaining(durRef.current); setStarted(false)
   }
 
-  function togglePause() {
+  async function togglePause() {
     if (running) {
       setRunning(false); stopAudio()
       if (tickRef.current) clearInterval(tickRef.current)
     } else {
-      setRunning(true); startAudio(sound, volume)
+      setRunning(true)
+      await startAudio(sound, volume)
       tickRef.current = setInterval(()=>{
         setRemaining(r=>{ if(r<=1){handleEnd(durRef.current-r);return 0} return r-1 })
       }, 1000)
