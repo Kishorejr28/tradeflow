@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# env files — never commit these
+.env.local
+.env.*.local
+.env
+
+# logs
+*.log
+npm-debug.log*
+
+# editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
