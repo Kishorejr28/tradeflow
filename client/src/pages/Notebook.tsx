@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Search, Pin, Plus, ChevronRight, FileText, BarChart2, Brain, Calendar } from 'lucide-react'
+import { Search, Pin, Plus, FileText, BarChart2, Brain } from 'lucide-react'
+import { useIsDemo } from '@/hooks/useIsDemo'
 
 const TEMPLATE_CATEGORIES = [
   {
@@ -37,11 +38,13 @@ const DEMO_NOTES = [
 ]
 
 export default function Notebook() {
+  const isDemo = useIsDemo()
+  const notes = isDemo ? DEMO_NOTES : []
   const [query, setQuery] = useState('')
   const [view, setView] = useState<'notes' | 'templates'>('notes')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
-  const filtered = DEMO_NOTES.filter(n =>
+  const filtered = notes.filter(n =>
     n.title.toLowerCase().includes(query.toLowerCase())
   )
 
@@ -156,9 +159,27 @@ export default function Notebook() {
               </div>
             ))}
           </div>
+        ) : notes.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+              <FileText className="w-7 h-7 text-gray-300 dark:text-gray-600" />
+            </div>
+            <div>
+              <p className="text-base font-semibold text-gray-700 dark:text-gray-300">No notes yet</p>
+              <p className="text-sm text-gray-400 mt-1">Create your first note, or pick a template to get started.</p>
+            </div>
+            <div className="flex gap-2">
+              <button className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition">
+                <Plus className="w-4 h-4" /> New note
+              </button>
+              <button onClick={() => setView('templates')} className="flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                Browse templates
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-            {DEMO_NOTES.map(note => (
+            {filtered.map(note => (
               <button key={note.id} className="card p-4 text-left hover:border-brand-300 dark:hover:border-brand-600 transition group">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-lg">{note.icon}</span>

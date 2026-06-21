@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, getDay } from 'date-fns'
-import { ChevronLeft, ChevronRight, Plus, X, Mic } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, Mic, FileText } from 'lucide-react'
+import { useIsDemo } from '@/hooks/useIsDemo'
 
 const EMOTIONS = [
   { emoji: '😊', label: 'Happy' },
@@ -110,10 +111,12 @@ function PostTradePopup({ trade, onClose }: { trade: PostTradeModal; onClose: ()
 }
 
 export default function Journal() {
+  const isDemo = useIsDemo()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [showDemo, setShowDemo] = useState(false)
   const [selected, setSelected] = useState<typeof DEMO_ENTRIES[0] | null>(null)
 
+  const entries = isDemo ? DEMO_ENTRIES : []
   const calendarDays = (() => {
     const start = startOfMonth(currentMonth)
     const end = endOfMonth(currentMonth)
@@ -122,7 +125,7 @@ export default function Journal() {
     return [...Array(dow).fill(null), ...days]
   })()
 
-  const entryMap = DEMO_ENTRIES.reduce((m, e) => { m[e.date] = e; return m }, {} as Record<string, typeof DEMO_ENTRIES[0]>)
+  const entryMap = entries.reduce((m, e) => { m[e.date] = e; return m }, {} as Record<string, typeof DEMO_ENTRIES[0]>)
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -208,7 +211,7 @@ export default function Journal() {
           </div>
         </div>
 
-        {/* Side panel — selected entry or summary */}
+        {/* Side panel */}
         <div className="space-y-4">
           {selected ? (
             <div className="card p-5">
@@ -249,43 +252,51 @@ export default function Journal() {
                 )}
               </div>
             </div>
+          ) : entries.length === 0 ? (
+            <div className="card p-6 flex flex-col items-center text-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                <FileText className="w-6 h-6 text-gray-300 dark:text-gray-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">No journal entries yet</p>
+                <p className="text-xs text-gray-400 mt-1">After closing a trade, a popup will appear asking how you felt and whether you followed your plan.</p>
+              </div>
+            </div>
           ) : (
             <div className="card p-5">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Monthly Summary</h3>
               <div className="space-y-2.5 text-sm">
-                <div className="flex justify-between"><span className="text-gray-500">Total trades</span><span className="font-medium text-gray-900 dark:text-white">{DEMO_ENTRIES.length}</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">Wins</span><span className="text-emerald-600 font-medium">{DEMO_ENTRIES.filter(e => e.pnl > 0).length}</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">Losses</span><span className="text-red-500 font-medium">{DEMO_ENTRIES.filter(e => e.pnl < 0).length}</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">Plan followed</span><span className="text-emerald-600 font-medium">{DEMO_ENTRIES.filter(e => e.planFollowed).length}/{DEMO_ENTRIES.length}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Total trades</span><span className="font-medium text-gray-900 dark:text-white">{entries.length}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Wins</span><span className="text-emerald-600 font-medium">{entries.filter(e => e.pnl > 0).length}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Losses</span><span className="text-red-500 font-medium">{entries.filter(e => e.pnl < 0).length}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Plan followed</span><span className="text-emerald-600 font-medium">{entries.filter(e => e.planFollowed).length}/{entries.length}</span></div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Net P&L</span>
-                  <span className="font-bold text-emerald-600">+${DEMO_ENTRIES.reduce((s, e) => s + e.pnl, 0).toLocaleString()}</span>
+                  <span className="font-bold text-emerald-600">+${entries.reduce((s, e) => s + e.pnl, 0).toLocaleString()}</span>
                 </div>
               </div>
             </div>
           )}
 
           {/* Recent entries */}
-          <div className="card p-5">
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Recent Trades</h3>
-            <div className="space-y-2">
-              {DEMO_ENTRIES.slice().reverse().map((e, i) => (
-                <button
-                  key={i}
-                  onClick={() => setSelected(e)}
-                  className="w-full flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition text-left"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{e.symbol}</p>
-                    <p className="text-xs text-gray-400">{format(new Date(e.date), 'MMM d')} · {e.emotion}</p>
-                  </div>
-                  <span className={`text-sm font-semibold ${e.pnl >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                    {e.pnl >= 0 ? '+' : ''}${e.pnl.toLocaleString()}
-                  </span>
-                </button>
-              ))}
+          {entries.length > 0 && (
+            <div className="card p-5">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Recent Trades</h3>
+              <div className="space-y-2">
+                {entries.slice().reverse().map((e, i) => (
+                  <button key={i} onClick={() => setSelected(e)} className="w-full flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition text-left">
+                    <div>
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{e.symbol}</p>
+                      <p className="text-xs text-gray-400">{format(new Date(e.date), 'MMM d')} · {e.emotion}</p>
+                    </div>
+                    <span className={`text-sm font-semibold ${e.pnl >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {e.pnl >= 0 ? '+' : ''}${e.pnl.toLocaleString()}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Plus, MoreHorizontal, Edit2, Trash2, CheckCircle2, Circle, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, MoreHorizontal, Edit2, Trash2, CheckCircle2, Circle, ChevronDown, ChevronUp, BookOpen } from 'lucide-react'
+import { useIsDemo } from '@/hooks/useIsDemo'
 
 const PLAN_COLORS = ['#7c3aed', '#2563eb', '#059669', '#d97706', '#dc2626', '#0891b2']
 
@@ -233,7 +234,9 @@ function NewPlanModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function Edge() {
-  const [selected, setSelected] = useState<Plan>(DEMO_PLANS[0])
+  const isDemo = useIsDemo()
+  const plans = isDemo ? DEMO_PLANS : []
+  const [selected, setSelected] = useState<Plan | null>(isDemo ? DEMO_PLANS[0] : null)
   const [showNew, setShowNew] = useState(false)
 
   return (
@@ -249,8 +252,8 @@ export default function Edge() {
           </button>
         </div>
         <div className="space-y-0.5 flex-1 overflow-y-auto">
-          {DEMO_PLANS.map(p => (
-            <PlanCard key={p.id} plan={p} onSelect={() => setSelected(p)} selected={selected.id === p.id} />
+          {plans.map(p => (
+            <PlanCard key={p.id} plan={p} onSelect={() => setSelected(p)} selected={selected?.id === p.id} />
           ))}
         </div>
       </div>
@@ -262,9 +265,24 @@ export default function Edge() {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Edge</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">Build and refine your trading playbook</p>
           </div>
-          <div className="card p-6">
-            <PlanDetail plan={selected} />
-          </div>
+          {selected ? (
+            <div className="card p-6">
+              <PlanDetail plan={selected} />
+            </div>
+          ) : (
+            <div className="card p-10 flex flex-col items-center text-center gap-4 border-dashed border-2 border-gray-200 dark:border-gray-700">
+              <div className="w-14 h-14 rounded-2xl bg-brand-50 dark:bg-brand-500/10 flex items-center justify-center">
+                <BookOpen className="w-7 h-7 text-brand-400" />
+              </div>
+              <div>
+                <p className="text-base font-semibold text-gray-800 dark:text-gray-200">No trading plans yet</p>
+                <p className="text-sm text-gray-400 mt-1 max-w-xs">Create your first plan to define your edge — charting steps, entry criteria, and invalidation rules.</p>
+              </div>
+              <button onClick={() => setShowNew(true)} className="flex items-center gap-2 px-5 py-2.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-xl transition">
+                <Plus className="w-4 h-4" /> Create my first plan
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

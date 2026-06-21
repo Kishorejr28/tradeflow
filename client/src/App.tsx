@@ -20,11 +20,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const { setUser, theme } = useAppStore()
+  const { setUser, setShowTutorial, seenTutorial } = useAppStore()
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // No Supabase config — skip auth entirely, go straight to UI
     if (!hasSupabaseConfig) {
       setLoading(false)
       return
@@ -33,7 +32,7 @@ export default function App() {
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
         if (session?.user) {
-          setUser({
+          const u = {
             id: session.user.id,
             email: session.user.email!,
             full_name: session.user.user_metadata?.full_name,
@@ -41,7 +40,12 @@ export default function App() {
             timezone: 'UTC',
             account_currency: 'USD',
             created_at: session.user.created_at,
-          })
+          }
+          setUser(u)
+          // Show tutorial for first-time real users
+          if (!seenTutorial[session.user.id]) {
+            setShowTutorial(true)
+          }
         }
       })
       .catch(() => {})
@@ -49,7 +53,7 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        setUser({
+        const u = {
           id: session.user.id,
           email: session.user.email!,
           full_name: session.user.user_metadata?.full_name,
@@ -57,14 +61,18 @@ export default function App() {
           timezone: 'UTC',
           account_currency: 'USD',
           created_at: session.user.created_at,
-        })
+        }
+        setUser(u)
+        if (!seenTutorial[session.user.id]) {
+          setShowTutorial(true)
+        }
       } else {
         setUser(null)
       }
     })
 
     return () => subscription.unsubscribe()
-  }, [setUser])
+  }, [setUser, setShowTutorial, seenTutorial])
 
   if (loading) {
     return (

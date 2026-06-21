@@ -8,10 +8,16 @@ interface AppState {
   theme: 'light' | 'dark'
   trades: Trade[]
   plans: TradingPlan[]
+  showTutorial: boolean
+  tutorialStep: number
+  seenTutorial: Record<string, boolean>
   setUser: (user: User | null) => void
   setTheme: (theme: 'light' | 'dark') => void
   setTrades: (trades: Trade[]) => void
   setPlans: (plans: TradingPlan[]) => void
+  setShowTutorial: (show: boolean) => void
+  setTutorialStep: (step: number) => void
+  markTutorialSeen: (userId: string) => void
   signOut: () => Promise<void>
 }
 
@@ -22,6 +28,9 @@ export const useAppStore = create<AppState>()(
       theme: 'light',
       trades: [],
       plans: [],
+      showTutorial: false,
+      tutorialStep: 0,
+      seenTutorial: {},
       setUser: (user) => set({ user }),
       setTheme: (theme) => {
         set({ theme })
@@ -33,6 +42,10 @@ export const useAppStore = create<AppState>()(
       },
       setTrades: (trades) => set({ trades }),
       setPlans: (plans) => set({ plans }),
+      setShowTutorial: (show) => set({ showTutorial: show, tutorialStep: 0 }),
+      setTutorialStep: (step) => set({ tutorialStep: step }),
+      markTutorialSeen: (userId) =>
+        set((s) => ({ seenTutorial: { ...s.seenTutorial, [userId]: true } })),
       signOut: async () => {
         await supabase.auth.signOut()
         set({ user: null, trades: [], plans: [] })
@@ -40,7 +53,10 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'tradeflow-store',
-      partialize: (state) => ({ theme: state.theme }),
+      partialize: (state) => ({
+        theme: state.theme,
+        seenTutorial: state.seenTutorial,
+      }),
       onRehydrateStorage: () => (state) => {
         if (state?.theme === 'dark') {
           document.documentElement.classList.add('dark')
