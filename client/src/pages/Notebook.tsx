@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Search, Pin, Plus, FileText, BarChart2, Brain } from 'lucide-react'
 import { useIsDemo } from '@/hooks/useIsDemo'
+import AddJournalModal from '@/components/ui/AddJournalModal'
 
 const TEMPLATE_CATEGORIES = [
   {
@@ -43,6 +44,7 @@ export default function Notebook() {
   const [query, setQuery] = useState('')
   const [view, setView] = useState<'notes' | 'templates'>('notes')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [showAddNote, setShowAddNote] = useState(false)
 
   const filtered = notes.filter(n =>
     n.title.toLowerCase().includes(query.toLowerCase())
@@ -50,6 +52,7 @@ export default function Notebook() {
 
   return (
     <div className="flex h-full overflow-hidden">
+      {showAddNote && <AddJournalModal onSave={() => {}} onClose={() => setShowAddNote(false)} />}
       {/* Sidebar */}
       <div className={`${sidebarCollapsed ? 'w-0 overflow-hidden' : 'w-64'} border-r border-gray-100 dark:border-gray-800 flex flex-col transition-all duration-200 shrink-0 bg-white dark:bg-[#141414]`}>
         <div className="p-3 space-y-2">
@@ -126,7 +129,7 @@ export default function Notebook() {
                 Templates
               </button>
             </div>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-medium rounded-lg transition">
+            <button onClick={() => setShowAddNote(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-medium rounded-lg transition">
               <Plus className="w-3.5 h-3.5" /> New note
             </button>
           </div>
@@ -169,7 +172,7 @@ export default function Notebook() {
               <p className="text-sm text-gray-400 mt-1">Create your first note, or pick a template to get started.</p>
             </div>
             <div className="flex gap-2">
-              <button className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition">
+              <button onClick={() => setShowAddNote(true)} className="flex items-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition">
                 <Plus className="w-4 h-4" /> New note
               </button>
               <button onClick={() => setView('templates')} className="flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">

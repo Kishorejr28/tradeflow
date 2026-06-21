@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, getDay } from 'date-fns'
 import { ChevronLeft, ChevronRight, Plus, X, Mic, FileText } from 'lucide-react'
 import { useIsDemo } from '@/hooks/useIsDemo'
+import AddTradeModal, { type ManualTrade } from '@/components/ui/AddTradeModal'
+import AddJournalModal from '@/components/ui/AddJournalModal'
 
 const EMOTIONS = [
   { emoji: '😊', label: 'Happy' },
@@ -115,8 +117,20 @@ export default function Journal() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [showDemo, setShowDemo] = useState(false)
   const [selected, setSelected] = useState<typeof DEMO_ENTRIES[0] | null>(null)
+  const [showAddTrade, setShowAddTrade] = useState(false)
+  const [showAddJournal, setShowAddJournal] = useState(false)
+  const [userEntries, setUserEntries] = useState<typeof DEMO_ENTRIES>([])
 
-  const entries = isDemo ? DEMO_ENTRIES : []
+  const entries = isDemo ? DEMO_ENTRIES : userEntries
+
+  const handleAddTrade = (t: ManualTrade) => {
+    setUserEntries(prev => [...prev, {
+      date: t.date, symbol: t.symbol,
+      direction: t.direction === 'long' ? 'long' : 'short',
+      pnl: t.pnl, planFollowed: t.planFollowed,
+      emotion: t.emotion, note: t.note,
+    }])
+  }
   const calendarDays = (() => {
     const start = startOfMonth(currentMonth)
     const end = endOfMonth(currentMonth)
@@ -129,6 +143,8 @@ export default function Journal() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
+      {showAddTrade && <AddTradeModal onSave={handleAddTrade} onClose={() => setShowAddTrade(false)} />}
+      {showAddJournal && <AddJournalModal onSave={() => {}} onClose={() => setShowAddJournal(false)} />}
       {showDemo && (
         <PostTradePopup
           trade={{ symbol: 'EURUSD', pnl: -698.75, grossPnl: -350 }}
@@ -142,13 +158,18 @@ export default function Journal() {
           <p className="text-sm text-gray-500 dark:text-gray-400">Review your trades, emotions, and patterns</p>
         </div>
         <div className="flex gap-2">
+          {isDemo && (
           <button
             onClick={() => setShowDemo(true)}
             className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition"
           >
             Preview post-trade popup
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 text-sm bg-brand-500 hover:bg-brand-600 text-white rounded-lg transition">
+          )}
+          <button onClick={() => setShowAddTrade(true)} className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+            <Plus className="w-4 h-4" /> Add Trade
+          </button>
+          <button onClick={() => setShowAddJournal(true)} className="flex items-center gap-2 px-4 py-2 text-sm bg-brand-500 hover:bg-brand-600 text-white rounded-lg transition">
             <Plus className="w-4 h-4" /> Add Entry
           </button>
         </div>

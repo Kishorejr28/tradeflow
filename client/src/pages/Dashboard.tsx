@@ -5,12 +5,13 @@ import {
 } from 'date-fns'
 import {
   TrendingUp, TrendingDown, Target, Activity,
-  ChevronLeft, ChevronRight, ArrowUpRight, PlusCircle,
+  ChevronLeft, ChevronRight, ArrowUpRight, PlusCircle, Plus,
 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useIsDemo } from '@/hooks/useIsDemo'
 import { useAppStore } from '@/store/appStore'
 import type { DailyStat } from '@/types'
+import AddTradeModal, { type ManualTrade } from '@/components/ui/AddTradeModal'
 
 const DEMO_TRADES: DailyStat[] = [
   { date: '2026-06-01', pnl: 1240, trades: 2, wins: 2, losses: 0, win_rate: 100, avg_r: 1.8 },
@@ -65,9 +66,31 @@ export default function Dashboard() {
   const user = useAppStore((s) => s.user)
   const { setShowTutorial } = useAppStore()
   const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [showAddTrade, setShowAddTrade] = useState(false)
+  const [manualTrades, setManualTrades] = useState<DailyStat[]>([])
 
-  const trades = isDemo ? DEMO_TRADES : []
-  const balance = isDemo ? 52480 : 0
+  const handleAddTrade = (t: ManualTrade) => {
+    const existing = manualTrades.find(m => m.date === t.date)
+    if (existing) {
+      setManualTrades(prev => prev.map(m => m.date === t.date ? {
+        ...m, pnl: m.pnl + t.pnl, trades: m.trades + 1,
+        wins: t.pnl > 0 ? m.wins + 1 : m.wins,
+        losses: t.pnl < 0 ? m.losses + 1 : m.losses,
+        win_rate: Math.round(((t.pnl > 0 ? m.wins + 1 : m.wins) / (m.trades + 1)) * 100),
+        avg_r: 0,
+      } : m))
+    } else {
+      setManualTrades(prev => [...prev, {
+        date: t.date, pnl: t.pnl, trades: 1,
+        wins: t.pnl > 0 ? 1 : 0, losses: t.pnl < 0 ? 1 : 0,
+        win_rate: t.pnl > 0 ? 100 : 0, avg_r: 0,
+      }])
+    }
+  }
+
+  const baseTrades = isDemo ? DEMO_TRADES : []
+  const trades = [...baseTrades, ...(!isDemo ? manualTrades : [])]
+  const balance = isDemo ? 52480 : manualTrades.reduce((s, t) => s + t.pnl, 0)
   const startBalance = isDemo ? 45000 : 0
 
   const statsMap = useMemo(() => {
@@ -107,6 +130,7 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
+      {showAddTrade && <AddTradeModal onSave={handleAddTrade} onClose={() => setShowAddTrade(false)} />}
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
@@ -114,14 +138,18 @@ export default function Dashboard() {
             {isDemo ? 'Demo account — sample data' : `Welcome back, ${user?.full_name?.split(' ')[0] || 'Trader'}`}
           </p>
         </div>
-        {!isDemo && (
-          <button
-            onClick={() => setShowTutorial(true)}
-            className="text-xs text-brand-500 hover:text-brand-600 flex items-center gap-1 transition"
-          >
-            View tutorial
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {!isDemo && (
+            <button onClick={() => setShowAddTrade(true)} className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition">
+              <Plus className="w-4 h-4" /> Add Trade
+            </button>
+          )}
+          {!isDemo && (
+            <button onClick={() => setShowTutorial(true)} className="text-xs text-brand-500 hover:text-brand-600 transition">
+              View tutorial
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Empty state banner for real users */}
