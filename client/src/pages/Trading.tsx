@@ -15,14 +15,36 @@ function tvSymbol(s: string) { return TV_SYMBOL[s] ?? `FX:${s}` }
 
 function TradingViewChart({ symbol }: { symbol: string }) {
   const isDark = document.documentElement.classList.contains('dark')
-  const src = `https://s.tradingview.com/widgetembed/?frameElementId=tradingview_chart&symbol=${tvSymbol(symbol)}&interval=15&hidesidetoolbar=0&hidetoptoolbar=0&symboledit=1&saveimage=0&toolbarbg=${isDark ? '1e1e1e' : 'f4f7f9'}&studies=[]&theme=${isDark ? 'dark' : 'light'}&style=1&timezone=Etc%2FUTC&withdateranges=1&showpopupbutton=1&locale=en`
+  // Advanced chart embed — includes full left drawing toolbar (trendlines, Fibonacci,
+  // rectangles, pencil, etc.) and top timeframe/indicator bar
+  const params = new URLSearchParams({
+    symbol: tvSymbol(symbol),
+    interval: '15',
+    timezone: 'Etc/UTC',
+    theme: isDark ? 'dark' : 'light',
+    style: '1',
+    locale: 'en',
+    toolbar_bg: isDark ? '#1e1e1e' : '#f4f7f9',
+    enable_publishing: 'false',
+    hide_side_toolbar: 'false',   // shows left drawing toolbar
+    hide_top_toolbar: 'false',    // shows timeframes + indicators
+    allow_symbol_change: 'true',
+    save_image: 'false',
+    withdateranges: '1',
+    details: 'true',
+    hotlist: 'false',
+    calendar: 'false',
+    studies: '',
+  })
+  const src = `https://www.tradingview.com/chart/?${params.toString()}`
   return (
     <iframe
-      key={symbol}
+      key={symbol + isDark}
       src={src}
       title="TradingView Chart"
       className="w-full h-full border-0"
       allowFullScreen
+      allow="fullscreen"
     />
   )
 }
