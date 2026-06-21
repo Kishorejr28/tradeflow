@@ -3,8 +3,9 @@ import {
   createChart, CrosshairMode, LineStyle,
   type IChartApi, type ISeriesApi, type UTCTimestamp,
 } from 'lightweight-charts'
-import { Play, Pause, SkipBack, SkipForward, RefreshCw } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, RefreshCw, Scissors } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
+import { useSearchParams } from 'react-router-dom'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface OHLCV {
@@ -106,6 +107,7 @@ const SPEEDS=[1,2,4,8,16,32]
 export default function Replay() {
   const { theme } = useAppStore()
   const isDark = theme==='dark'
+  const [searchParams] = useSearchParams()
 
   // DOM refs
   const mainRef = useRef<HTMLDivElement>(null)
@@ -131,12 +133,13 @@ export default function Replay() {
   const mhR   = useRef<ISeriesApi<'Histogram'>|null>(null)
 
   // State
-  const [sym,  setSym]  = useState('EURUSD')
-  const [tf,   setTf]   = useState('15m')
+  const [sym,  setSym]  = useState(() => searchParams.get('symbol') || 'EURUSD')
+  const [tf,   setTf]   = useState(() => searchParams.get('tf') || '15m')
   const [data, setData] = useState<OHLCV[]>([])
   const [ph,   setPH]   = useState(100)
   const [play, setPlay] = useState(false)
   const [spd,  setSpd]  = useState(1)
+  const [scissorMode, setScissorMode] = useState(false)
 
   const [showSMA,  setShowSMA]  = useState(true)
   const [showEMA,  setShowEMA]  = useState(true)
@@ -153,9 +156,11 @@ export default function Replay() {
   const dataRef  = useRef(data)
   const playRef  = useRef(play)
   const spdRef   = useRef(spd)
+  const scissorRef = useRef(scissorMode)
   useEffect(()=>{dataRef.current=data},[data])
   useEffect(()=>{playRef.current=play},[play])
   useEffect(()=>{spdRef.current=spd},[spd])
+  useEffect(()=>{scissorRef.current=scissorMode},[scissorMode])
 
   const col = {bg:isDark?'#141414':'#ffffff',txt:isDark?'#d1d5db':'#374151',grid:isDark?'#1f2937':'#f3f4f6',bdr:isDark?'#374151':'#e5e7eb'}
 
@@ -199,6 +204,20 @@ export default function Replay() {
       if(macdRef.current&&mcRef.current) mcRef.current.resize(macdRef.current.clientWidth,macdRef.current.clientHeight)
     })
     if(mainRef.current) ro.observe(mainRef.current)
+
+    // Click-to-seek (scissor mode): find which bar was clicked and jump playhead there
+    chart.subscribeClick((param) => {
+      if (!scissorRef.current || !param.time) return
+      const d = dataRef.current
+      if (!d.length) return
+      const idx = d.findIndex(c => c.time === param.time)
+      if (idx >= 0) {
+        setPH(idx + 1)
+        setPlay(false)
+        setScissorMode(false) // auto-exit scissor mode after cut
+      }
+    })
+
     return ()=>ro.disconnect()
   },[isDark,showRSI,showMACD,col.bg,col.txt,col.grid,col.bdr])
 
@@ -208,7 +227,10 @@ export default function Replay() {
   const load = useCallback(()=>{
     setPlay(false)
     const c=genCandles(sym,tf,500)
-    setData(c); setPH(Math.floor(c.length*0.5))
+    setData(c)
+    setPH(Math.floor(c.length*0.5))
+    // Fit after a tick so series data is rendered first
+    setTimeout(()=>{ cRef.current?.timeScale().fitContent() }, 50)
   },[sym,tf])
   useEffect(()=>{ load() },[load])
 
@@ -414,7 +436,7 @@ export default function Replay() {
         </div>
 
         {/* Main candle chart */}
-        <div ref={mainRef} className="flex-1 min-h-0"/>
+        <div ref={mainRef} className={`flex-1 min-h-0 ${scissorMode ? 'cursor-crosshair' : ''}`}/>
 
         {/* RSI pane */}
         {showRSI&&(
@@ -474,6 +496,19 @@ export default function Replay() {
               </button>
             ))}
           </div>
+
+          {/* Scissor — click to set cut point */}
+          <button
+            onClick={()=>{ setPlay(false); setScissorMode(s=>!s) }}
+            title={scissorMode ? 'Click a candle to jump playhead there — click again to cancel' : 'Click a candle on the chart to jump to that point'}
+            className={`ml-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition border ${
+              scissorMode
+                ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/30'
+                : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}>
+            <Scissors className="w-3.5 h-3.5"/>
+            {scissorMode ? 'Click chart to cut…' : 'Cut'}
+          </button>
         </div>
       </div>
     </div>

@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   TrendingUp, TrendingDown, BarChart2, X, RotateCcw, Star,
-  ChevronUp, ChevronDown, Bell, BellOff, LayoutGrid,
-  Maximize2, Plus, Trash2, Calculator, Clock,
+  ChevronUp, ChevronDown, Bell, Calculator, History, Trash2,
 } from 'lucide-react'
 import { useDemoStore, calcPnl } from '@/store/demoStore'
 import { useLivePrices, getPipSize, BASE_PRICES } from '@/hooks/useLivePrices'
 import { format } from 'date-fns'
 import { useAppStore } from '@/store/appStore'
+import { useNavigate } from 'react-router-dom'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const SYMBOLS = ['EURUSD','GBPUSD','USDJPY','AUDUSD','USDCAD','USDCHF','NZDUSD','XAUUSD','GBPJPY','EURJPY','EURGBP','GBPCHF']
@@ -389,6 +389,7 @@ function StarredBar({ starred, prices, direction, active, onSelect, onUnstar }: 
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Trading() {
+  const navigate = useNavigate()
   const [layout, setLayout] = useState<Layout>('1x1')
   const [slots, setSlots] = useState(['EURUSD','GBPUSD','USDJPY','XAUUSD'])
   const [activeSlot, setActiveSlot] = useState(0)
@@ -466,6 +467,12 @@ export default function Trading() {
             <span>Equity: <strong className="text-gray-700 dark:text-gray-300">${equity.toFixed(0)}</strong></span>
           </div>
           <button onClick={() => setShowOrder(true)} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg transition shadow-sm">New Order</button>
+          <button
+            onClick={() => navigate(`/replay?symbol=${activeSymbol}`)}
+            title="Open this symbol in Replay"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+            <History className="w-3.5 h-3.5"/> Replay
+          </button>
           <button onClick={() => setShowReset(true)} title="Reset demo" className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition"><RotateCcw className="w-3.5 h-3.5" /></button>
         </div>
 
