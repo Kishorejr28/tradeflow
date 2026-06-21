@@ -1,12 +1,67 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from '@/store/appStore'
-import { Star } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday, addMonths, subMonths } from 'date-fns'
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'NZD', 'CNY']
 
 const FLAG: Record<string, string> = {
   USD: '🇺🇸', EUR: '🇪🇺', GBP: '🇬🇧', JPY: '🇯🇵',
   AUD: '🇦🇺', CAD: '🇨🇦', CHF: '🇨🇭', NZD: '🇳🇿', CNY: '🇨🇳',
+}
+
+function MiniCalendar({ selected, onSelect }: { selected: Date; onSelect: (d: Date) => void }) {
+  const [month, setMonth] = useState(new Date(selected))
+
+  const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) })
+  const startPad = getDay(startOfMonth(month)) === 0 ? 6 : getDay(startOfMonth(month)) - 1
+
+  return (
+    <div className="px-3 py-3 border-b border-gray-100 dark:border-gray-800">
+      {/* Month nav */}
+      <div className="flex items-center justify-between mb-2">
+        <button onClick={() => setMonth(m => subMonths(m, 1))}
+          className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 transition">
+          <ChevronLeft className="w-3.5 h-3.5" />
+        </button>
+        <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+          {format(month, 'MMM yyyy')}
+        </span>
+        <button onClick={() => setMonth(m => addMonths(m, 1))}
+          className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 transition">
+          <ChevronRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {/* Day headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {['M','T','W','T','F','S','S'].map((d, i) => (
+          <div key={i} className="text-center text-[9px] font-medium text-gray-400">{d}</div>
+        ))}
+      </div>
+
+      {/* Days grid */}
+      <div className="grid grid-cols-7 gap-0.5">
+        {Array(startPad).fill(null).map((_, i) => <div key={`p${i}`} />)}
+        {days.map(day => {
+          const isSelected = isSameDay(day, selected)
+          const today = isToday(day)
+          const isWeekend = [0, 6].includes(day.getDay())
+          return (
+            <button
+              key={day.toISOString()}
+              onClick={() => { onSelect(day); setMonth(new Date(day)) }}
+              className={`aspect-square flex items-center justify-center text-[10px] rounded font-medium transition
+                ${isSelected ? 'bg-brand-500 text-white' : today ? 'bg-brand-100 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400' : isWeekend ? 'text-gray-300 dark:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}
+              `}
+            >
+              {format(day, 'd')}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 // embed-widget-events.js is TradingView's economic calendar widget
@@ -49,6 +104,7 @@ function EconomicCalendarWidget({ importance, currencies }: {
 export default function News() {
   const [selectedCurrencies, setSelectedCurrencies] = useState(['USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD'])
   const [importance, setImportance] = useState('-1,0,1')
+  const [selectedDate, setSelectedDate] = useState(new Date())
 
   const toggleCurrency = (c: string) =>
     setSelectedCurrencies(p => p.includes(c) ? p.filter(x => x !== c) : [...p, c])
@@ -57,7 +113,10 @@ export default function News() {
     <div className="flex h-full overflow-hidden">
       {/* Filters */}
       <div className="w-56 border-r border-gray-100 dark:border-gray-800 flex flex-col shrink-0 bg-white dark:bg-[#141414]">
-        <div className="px-4 py-4 border-b border-gray-100 dark:border-gray-800">
+        {/* Mini calendar at top */}
+        <MiniCalendar selected={selectedDate} onSelect={setSelectedDate} />
+
+        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
           <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Filters</h2>
           <p className="text-[11px] text-gray-400 mt-0.5">Updates calendar on apply</p>
         </div>
