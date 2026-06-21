@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Search, Pin, Plus, FileText, BarChart2, Brain } from 'lucide-react'
 import { useIsDemo } from '@/hooks/useIsDemo'
+import { useAppStore } from '@/store/appStore'
 import AddJournalModal from '@/components/ui/AddJournalModal'
 
 const TEMPLATE_CATEGORIES = [
@@ -40,19 +41,29 @@ const DEMO_NOTES = [
 
 export default function Notebook() {
   const isDemo = useIsDemo()
-  const notes = isDemo ? DEMO_NOTES : []
+  const { addLocalNote, localNotes } = useAppStore()
+  const demoNotes = isDemo ? DEMO_NOTES : []
+  const userNotes = localNotes.map(n => ({
+    id: n.id, title: n.title, preview: n.content.slice(0, 60) + (n.content.length > 60 ? '...' : ''),
+    updated: n.date, pinned: false, icon: '📝',
+  }))
+  const allNotes = [...demoNotes, ...userNotes]
   const [query, setQuery] = useState('')
   const [view, setView] = useState<'notes' | 'templates'>('notes')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showAddNote, setShowAddNote] = useState(false)
 
-  const filtered = notes.filter(n =>
+  const handleSaveNote = (entry: { title: string; content: string; date: string }) => {
+    addLocalNote(entry)
+  }
+
+  const filtered = allNotes.filter(n =>
     n.title.toLowerCase().includes(query.toLowerCase())
   )
 
   return (
     <div className="flex h-full overflow-hidden">
-      {showAddNote && <AddJournalModal onSave={() => {}} onClose={() => setShowAddNote(false)} />}
+      {showAddNote && <AddJournalModal onSave={handleSaveNote} onClose={() => setShowAddNote(false)} />}
       {/* Sidebar */}
       <div className={`${sidebarCollapsed ? 'w-0 overflow-hidden' : 'w-64'} border-r border-gray-100 dark:border-gray-800 flex flex-col transition-all duration-200 shrink-0 bg-white dark:bg-[#141414]`}>
         <div className="p-3 space-y-2">
@@ -162,7 +173,7 @@ export default function Notebook() {
               </div>
             ))}
           </div>
-        ) : notes.length === 0 ? (
+        ) : allNotes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
               <FileText className="w-7 h-7 text-gray-300 dark:text-gray-600" />

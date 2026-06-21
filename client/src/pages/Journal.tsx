@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, getDay } from 'date-fns'
 import { ChevronLeft, ChevronRight, Plus, X, Mic, FileText } from 'lucide-react'
 import { useIsDemo } from '@/hooks/useIsDemo'
+import { useAppStore } from '@/store/appStore'
 import AddTradeModal, { type ManualTrade } from '@/components/ui/AddTradeModal'
 import AddJournalModal from '@/components/ui/AddJournalModal'
 
@@ -114,22 +115,26 @@ function PostTradePopup({ trade, onClose }: { trade: PostTradeModal; onClose: ()
 
 export default function Journal() {
   const isDemo = useIsDemo()
+  const { addLocalTrade, addLocalNote, localTrades, localNotes } = useAppStore()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [showDemo, setShowDemo] = useState(false)
   const [selected, setSelected] = useState<typeof DEMO_ENTRIES[0] | null>(null)
   const [showAddTrade, setShowAddTrade] = useState(false)
   const [showAddJournal, setShowAddJournal] = useState(false)
-  const [userEntries, setUserEntries] = useState<typeof DEMO_ENTRIES>([])
 
-  const entries = isDemo ? DEMO_ENTRIES : userEntries
+  // Merge demo entries with user entries for display
+  const demoEntries = isDemo ? DEMO_ENTRIES : []
+  const userTradeEntries = localTrades.map(t => ({
+    date: t.date, symbol: t.symbol,
+    direction: t.direction as 'long' | 'short',
+    pnl: t.pnl, planFollowed: t.planFollowed,
+    emotion: t.emotion, note: t.note,
+  }))
+  const entries = [...demoEntries, ...userTradeEntries]
 
-  const handleAddTrade = (t: ManualTrade) => {
-    setUserEntries(prev => [...prev, {
-      date: t.date, symbol: t.symbol,
-      direction: t.direction === 'long' ? 'long' : 'short',
-      pnl: t.pnl, planFollowed: t.planFollowed,
-      emotion: t.emotion, note: t.note,
-    }])
+  const handleAddTrade = (t: ManualTrade) => { addLocalTrade(t) }
+  const handleAddJournal = (entry: { title: string; content: string; date: string }) => {
+    addLocalNote(entry)
   }
   const calendarDays = (() => {
     const start = startOfMonth(currentMonth)
@@ -144,7 +149,7 @@ export default function Journal() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {showAddTrade && <AddTradeModal onSave={handleAddTrade} onClose={() => setShowAddTrade(false)} />}
-      {showAddJournal && <AddJournalModal onSave={() => {}} onClose={() => setShowAddJournal(false)} />}
+      {showAddJournal && <AddJournalModal onSave={handleAddJournal} onClose={() => setShowAddJournal(false)} />}
       {showDemo && (
         <PostTradePopup
           trade={{ symbol: 'EURUSD', pnl: -698.75, grossPnl: -350 }}

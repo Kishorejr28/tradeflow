@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
-import { format, addDays, subDays } from 'date-fns'
-import { ChevronLeft, ChevronRight, Filter, X, RefreshCw } from 'lucide-react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { format, addDays, subDays, parseISO } from 'date-fns'
+import { ChevronLeft, ChevronRight, Filter, X, RefreshCw, AlertCircle } from 'lucide-react'
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'NZD', 'CNY']
 const IMPACTS = ['high', 'medium', 'low'] as const
@@ -28,33 +28,68 @@ const FLAG: Record<string, string> = {
   AUD: '🇦🇺', CAD: '🇨🇦', CHF: '🇨🇭', NZD: '🇳🇿', CNY: '🇨🇳',
 }
 
-// Free CORS-friendly calendar via allorigins proxy of investing.com calendar API
-// Fallback: tradingeconomics-style public endpoint
+// Try multiple free CORS-friendly sources
 async function fetchCalendar(date: Date): Promise<NewsEvent[]> {
   const dateStr = format(date, 'yyyy-MM-dd')
+
+  // Source 1: forexfactory via allorigins CORS proxy
   try {
-    const url = `https://nfs.faireconomy.media/ff_calendar_thisweek.json`
-    const res = await fetch(url)
-    if (!res.ok) throw new Error('fetch failed')
-    const raw = await res.json() as Array<{
-      title: string; country: string; date: string; time: string
-      impact: string; forecast: string; previous: string; actual: string
-    }>
-    // filter to selected date
-    const dayEvents = raw.filter(e => e.date === dateStr || e.date.startsWith(dateStr))
-    return dayEvents.map((e, i) => ({
-      id: String(i),
-      time: e.time || '00:00',
-      currency: e.country?.toUpperCase() || '?',
-      impact: (e.impact === 'High' ? 'high' : e.impact === 'Medium' ? 'medium' : 'low') as Impact,
-      event: e.title,
-      actual: e.actual || undefined,
-      forecast: e.forecast || undefined,
-      previous: e.previous || undefined,
-    }))
-  } catch {
-    return []
-  }
+    const ffUrl = `https://nfs.faireconomy.media/ff_calendar_thisweek.json?version=${dateStr}`
+    const res = await fetch(ffUrl, { cache: 'no-store' })
+    if (res.ok) {
+      const raw = await res.json() as Array<{
+        title: string; country: string; date: string; time: string
+        impact: string; forecast: string; previous: string; actual: string
+      }>
+      // FF dates come as "MM/DD/YYYY" or "YYYY-MM-DD" depending on version
+      const dayEvents = raw.filter(e => {
+        const d = e.date
+        if (!d) return false
+        // Handle both formats
+        if (d.includes('/')) {
+          const [mo, dy, yr] = d.split('/')
+          return `${yr}-${mo.padStart(2,'0')}-${dy.padStart(2,'0')}` === dateStr
+        }
+        return d.startsWith(dateStr)
+      })
+      if (dayEvents.length > 0) {
+        return dayEvents.map((e, i) => ({
+          id: `ff-${i}`,
+          time: e.time || 'All Day',
+          currency: e.country?.toUpperCase() || '?',
+          impact: (e.impact === 'High' ? 'high' : e.impact === 'Medium' ? 'medium' : 'low') as Impact,
+          event: e.title,
+          actual: e.actual || undefined,
+          forecast: e.forecast || undefined,
+          previous: e.previous || undefined,
+        }))
+      }
+    }
+  } catch {}
+
+  // Source 2: tradingeconomics open calendar (no key needed for basic use)
+  try {
+    const teUrl = `https://api.tradingeconomics.com/calendar/country/all/${dateStr}/${dateStr}?c=guest:guest&f=json`
+    const res = await fetch(teUrl, { cache: 'no-store' })
+    if (res.ok) {
+      const raw = await res.json() as Array<{
+        Event: string; Country: string; Date: string; Time: string
+        Importance: number; Actual: string; Forecast: string; Previous: string
+      }>
+      return raw.map((e, i) => ({
+        id: `te-${i}`,
+        time: e.Time?.slice(0, 5) || 'All Day',
+        currency: e.Country?.slice(0, 3).toUpperCase() || '?',
+        impact: (e.Importance >= 3 ? 'high' : e.Importance >= 2 ? 'medium' : 'low') as Impact,
+        event: e.Event,
+        actual: e.Actual || undefined,
+        forecast: e.Forecast || undefined,
+        previous: e.Previous || undefined,
+      }))
+    }
+  } catch {}
+
+  return []
 }
 
 export default function News() {
@@ -64,16 +99,14 @@ export default function News() {
   const [showFilters, setShowFilters] = useState(true)
   const [events, setEvents] = useState<NewsEvent[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [apiDown, setApiDown] = useState(false)
 
   const loadEvents = async (date: Date) => {
     setLoading(true)
-    setError('')
+    setApiDown(false)
     const data = await fetchCalendar(date)
-    if (data.length === 0) {
-      setError('No events found for this date, or the calendar service is unavailable.')
-    }
     setEvents(data)
+    if (data.length === 0) setApiDown(true)
     setLoading(false)
   }
 
@@ -91,11 +124,8 @@ export default function News() {
   const toggleImpact = (i: Impact) =>
     setSelectedImpacts(p => p.includes(i) ? p.filter(x => x !== i) : [...p, i])
 
-  const quickDates = [
-    { label: 'Today', date: new Date() },
-    { label: 'Tomorrow', date: addDays(new Date(), 1) },
-    { label: 'Yesterday', date: subDays(new Date(), 1) },
-  ]
+  const isSaturday = currentDate.getDay() === 6
+  const isSunday = currentDate.getDay() === 0
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -104,18 +134,26 @@ export default function News() {
         <div className="w-60 border-r border-gray-100 dark:border-gray-800 flex flex-col shrink-0 bg-white dark:bg-[#141414]">
           <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100 dark:border-gray-800">
             <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Filters</h2>
-            <button onClick={() => setShowFilters(false)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+            <button onClick={() => setShowFilters(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><X className="w-4 h-4" /></button>
           </div>
           <div className="p-4 space-y-5 overflow-y-auto">
             {/* Date */}
             <div>
               <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Date</p>
               <input type="date" value={format(currentDate, 'yyyy-MM-dd')}
-                onChange={e => { const d = new Date(e.target.value + 'T00:00:00'); if (!isNaN(d.getTime())) setCurrentDate(d) }}
+                onChange={e => {
+                  const d = new Date(e.target.value + 'T12:00:00')
+                  if (!isNaN(d.getTime())) setCurrentDate(d)
+                }}
                 className="w-full px-2 py-1.5 text-xs rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-brand-400 mb-2"
               />
               <div className="flex flex-wrap gap-1.5">
-                {quickDates.map(q => (
+                {[
+                  { label: 'Yesterday', date: subDays(new Date(), 1) },
+                  { label: 'Today', date: new Date() },
+                  { label: 'Tomorrow', date: addDays(new Date(), 1) },
+                  { label: '+2 days', date: addDays(new Date(), 2) },
+                ].map(q => (
                   <button key={q.label} onClick={() => setCurrentDate(q.date)}
                     className="text-[11px] px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-brand-100 dark:hover:bg-brand-500/20 hover:text-brand-600 dark:hover:text-brand-400 transition">
                     {q.label}
@@ -165,11 +203,12 @@ export default function News() {
       )}
 
       {/* Main */}
-      <div className="flex-1 p-6 overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800 shrink-0">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">News</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Live economic calendar</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Economic calendar</p>
           </div>
           <div className="flex items-center gap-2">
             {!showFilters && (
@@ -177,65 +216,113 @@ export default function News() {
                 <Filter className="w-3.5 h-3.5" /> Filters
               </button>
             )}
-            <button onClick={() => loadEvents(currentDate)} disabled={loading} className="p-2 rounded-lg text-gray-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition disabled:opacity-40">
+            <button onClick={() => loadEvents(currentDate)} disabled={loading}
+              className="p-2 rounded-lg text-gray-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition disabled:opacity-40">
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
             <div className="flex items-center gap-1">
-              <button onClick={() => setCurrentDate(d => subDays(d, 1))} className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 transition"><ChevronLeft className="w-4 h-4" /></button>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 px-1 min-w-[180px] text-center">
+              <button onClick={() => setCurrentDate(d => subDays(d, 1))} className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 transition">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 px-2 min-w-[200px] text-center">
                 {format(currentDate, 'EEEE, MMM d yyyy')}
               </span>
-              <button onClick={() => setCurrentDate(d => addDays(d, 1))} className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 transition"><ChevronRight className="w-4 h-4" /></button>
+              <button onClick={() => setCurrentDate(d => addDays(d, 1))} className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 transition">
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
 
-        <div className="card overflow-hidden">
-          <div className="grid grid-cols-6 text-xs font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 dark:bg-gray-800/50 px-4 py-2.5 border-b border-gray-100 dark:border-gray-800">
-            <span>Time</span><span>Currency</span><span>Impact</span>
-            <span className="col-span-2">Event</span>
-            <span className="text-right grid grid-cols-3 gap-2 text-[10px]">
-              <span>Actual</span><span>Forecast</span><span>Previous</span>
-            </span>
+        {/* Weekend notice */}
+        {(isSaturday || isSunday) && !loading && (
+          <div className="mx-6 mt-4 flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-sm text-amber-700 dark:text-amber-400">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            Markets are closed on weekends — no economic events scheduled.
+          </div>
+        )}
+
+        {/* Table */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="card overflow-hidden">
+            {/* Header row */}
+            <div className="grid text-xs font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 dark:bg-gray-800/50 px-4 py-2.5 border-b border-gray-100 dark:border-gray-800"
+              style={{ gridTemplateColumns: '80px 100px 70px 1fr 90px 90px 90px' }}>
+              <span>Time</span>
+              <span>Currency</span>
+              <span>Impact</span>
+              <span>Event</span>
+              <span className="text-right">Actual</span>
+              <span className="text-right">Forecast</span>
+              <span className="text-right">Previous</span>
+            </div>
+
+            {loading ? (
+              <div className="py-16 flex flex-col items-center gap-3 text-gray-400">
+                <RefreshCw className="w-6 h-6 animate-spin" />
+                <p className="text-sm">Fetching calendar...</p>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="py-16 flex flex-col items-center gap-3 text-center px-8">
+                {apiDown && !isSaturday && !isSunday ? (
+                  <>
+                    <AlertCircle className="w-8 h-8 text-amber-400" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Calendar feed unavailable</p>
+                      <p className="text-xs text-gray-400 mt-1 max-w-xs">
+                        The free ForexFactory feed only covers the current week and has rate limits.
+                        Try today's date or use the embedded calendar below.
+                      </p>
+                    </div>
+                    <button onClick={() => loadEvents(currentDate)} className="text-xs text-brand-500 hover:text-brand-600 underline">Try again</button>
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-400">No events match your filters for this date.</p>
+                )}
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-50 dark:divide-gray-800/60">
+                {filtered.map(event => (
+                  <div key={event.id}
+                    className="grid px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/3 transition items-center text-sm"
+                    style={{ gridTemplateColumns: '80px 100px 70px 1fr 90px 90px 90px' }}>
+                    <span className="font-medium text-gray-700 dark:text-gray-300 text-xs">{event.time}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-base">{FLAG[event.currency] || '🌐'}</span>
+                      <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{event.currency}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`w-2.5 h-2.5 rounded-full ${IMPACT_COLOR[event.impact]}`} />
+                      <span className="text-xs text-gray-400 capitalize hidden xl:inline">{event.impact}</span>
+                    </div>
+                    <span className="text-gray-800 dark:text-gray-200 pr-4">{event.event}</span>
+                    <span className={`text-right text-xs font-semibold ${
+                      event.actual
+                        ? event.forecast && parseFloat(event.actual) >= parseFloat(event.forecast)
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-red-500 dark:text-red-400'
+                        : 'text-gray-300 dark:text-gray-600'
+                    }`}>{event.actual || '—'}</span>
+                    <span className="text-right text-xs text-gray-500 dark:text-gray-400">{event.forecast || '—'}</span>
+                    <span className="text-right text-xs text-gray-500 dark:text-gray-400">{event.previous || '—'}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {loading ? (
-            <div className="py-16 flex flex-col items-center gap-3 text-gray-400">
-              <RefreshCw className="w-6 h-6 animate-spin" />
-              <p className="text-sm">Loading calendar...</p>
+          {/* Embedded ForexFactory widget as reliable fallback */}
+          <div className="mt-6">
+            <p className="text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">Full Calendar (ForexFactory)</p>
+            <div className="card overflow-hidden" style={{ height: 400 }}>
+              <iframe
+                src="https://www.forexfactory.com/calendar"
+                title="ForexFactory Calendar"
+                className="w-full h-full border-0"
+                sandbox="allow-scripts allow-same-origin allow-forms"
+              />
             </div>
-          ) : error ? (
-            <div className="py-16 flex flex-col items-center gap-3 text-gray-400 text-center px-8">
-              <p className="text-sm">{error}</p>
-              <p className="text-xs text-gray-300 dark:text-gray-600">The ForexFactory calendar API may be unavailable or this day has no events. Try another date.</p>
-              <button onClick={() => loadEvents(currentDate)} className="text-xs text-brand-500 hover:text-brand-600 underline">Try again</button>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="py-16 text-center text-sm text-gray-400">
-              No events match your filters for this date.
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-50 dark:divide-gray-800/60">
-              {filtered.map(event => (
-                <div key={event.id} className="grid grid-cols-6 px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/3 transition items-center">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{event.time}</span>
-                  <div className="flex items-center gap-1.5">
-                    <span>{FLAG[event.currency] || '🌐'}</span>
-                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{event.currency}</span>
-                  </div>
-                  <div><span className={`w-2.5 h-2.5 rounded-full inline-block ${IMPACT_COLOR[event.impact]}`} /></div>
-                  <span className="col-span-2 text-sm text-gray-800 dark:text-gray-200">{event.event}</span>
-                  <div className="grid grid-cols-3 gap-2 text-right text-xs">
-                    <span className={event.actual ? (event.forecast && parseFloat(event.actual) >= parseFloat(event.forecast) ? 'text-emerald-600 font-semibold' : 'text-red-500 font-semibold') : 'text-gray-300 dark:text-gray-600'}>
-                      {event.actual || '—'}
-                    </span>
-                    <span className="text-gray-500 dark:text-gray-400">{event.forecast || '—'}</span>
-                    <span className="text-gray-500 dark:text-gray-400">{event.previous || '—'}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

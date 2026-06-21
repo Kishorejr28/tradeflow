@@ -1,41 +1,30 @@
 import { useEffect, useRef, useState } from 'react'
-import { TrendingUp, TrendingDown, BarChart2, X, RotateCcw, AlertCircle } from 'lucide-react'
+import { TrendingUp, TrendingDown, BarChart2, X, RotateCcw } from 'lucide-react'
 import { useDemoStore, calcPnl } from '@/store/demoStore'
 import { useLivePrices, getPipSize } from '@/hooks/useLivePrices'
 import { format } from 'date-fns'
 
 const SYMBOLS = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD', 'XAUUSD', 'GBPJPY', 'EURJPY']
 
-function TradingViewWidget({ symbol, theme }: { symbol: string; theme: string }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!containerRef.current) return
-    containerRef.current.innerHTML = ''
-    const wrapper = document.createElement('div')
-    wrapper.style.height = '100%'
-    wrapper.style.width = '100%'
-    const script = document.createElement('script')
-    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'
-    script.async = true
-    script.innerHTML = JSON.stringify({
-      autosize: true,
-      symbol: symbol === 'XAUUSD' ? 'TVC:GOLD' : `FX:${symbol}`,
-      interval: '15',
-      timezone: 'Etc/UTC',
-      theme,
-      style: '1',
-      locale: 'en',
-      enable_publishing: false,
-      hide_top_toolbar: false,
-      save_image: false,
-      calendar: false,
-      support_host: 'https://www.tradingview.com',
-    })
-    containerRef.current.appendChild(wrapper)
-    containerRef.current.appendChild(script)
-    return () => { if (containerRef.current) containerRef.current.innerHTML = '' }
-  }, [symbol, theme])
-  return <div ref={containerRef} className="tradingview-widget-container w-full h-full" />
+const TV_SYMBOL: Record<string, string> = {
+  XAUUSD: 'TVC:GOLD',
+  GBPJPY: 'FX:GBPJPY',
+  EURJPY: 'FX:EURJPY',
+}
+function tvSymbol(s: string) { return TV_SYMBOL[s] ?? `FX:${s}` }
+
+function TradingViewChart({ symbol }: { symbol: string }) {
+  const isDark = document.documentElement.classList.contains('dark')
+  const src = `https://s.tradingview.com/widgetembed/?frameElementId=tradingview_chart&symbol=${tvSymbol(symbol)}&interval=15&hidesidetoolbar=0&hidetoptoolbar=0&symboledit=1&saveimage=0&toolbarbg=${isDark ? '1e1e1e' : 'f4f7f9'}&studies=[]&theme=${isDark ? 'dark' : 'light'}&style=1&timezone=Etc%2FUTC&withdateranges=1&showpopupbutton=1&locale=en`
+  return (
+    <iframe
+      key={symbol}
+      src={src}
+      title="TradingView Chart"
+      className="w-full h-full border-0"
+      allowFullScreen
+    />
+  )
 }
 
 function OrderModal({ symbol, price, onClose }: {
@@ -130,7 +119,7 @@ export default function Trading() {
   const [showReset, setShowReset] = useState(false)
   const { prices, direction } = useLivePrices(SYMBOLS)
   const { balance, positions, history, closePosition, resetAccount } = useDemoStore()
-  const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+
 
   // Auto-close on SL/TP hit
   useEffect(() => {
@@ -196,7 +185,7 @@ export default function Trading() {
 
         {/* TradingView */}
         <div className="flex-1 min-h-0 bg-white dark:bg-[#141414]">
-          <TradingViewWidget symbol={activeSymbol} theme={theme} />
+          <TradingViewChart symbol={activeSymbol} />
         </div>
 
         {/* Positions / History */}

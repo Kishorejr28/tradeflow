@@ -13,6 +13,9 @@ import { useAppStore } from '@/store/appStore'
 import type { DailyStat } from '@/types'
 import AddTradeModal, { type ManualTrade } from '@/components/ui/AddTradeModal'
 
+// re-export type so Journal can import it too
+export type { ManualTrade }
+
 const DEMO_TRADES: DailyStat[] = [
   { date: '2026-06-01', pnl: 1240, trades: 2, wins: 2, losses: 0, win_rate: 100, avg_r: 1.8 },
   { date: '2026-06-03', pnl: -680, trades: 1, wins: 0, losses: 1, win_rate: 0, avg_r: -1.2 },
@@ -64,33 +67,29 @@ function EmptyEquity() {
 export default function Dashboard() {
   const isDemo = useIsDemo()
   const user = useAppStore((s) => s.user)
-  const { setShowTutorial } = useAppStore()
+  const { setShowTutorial, addLocalTrade, localTrades } = useAppStore()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [showAddTrade, setShowAddTrade] = useState(false)
-  const [manualTrades, setManualTrades] = useState<DailyStat[]>([])
 
   const handleAddTrade = (t: ManualTrade) => {
-    const existing = manualTrades.find(m => m.date === t.date)
-    if (existing) {
-      setManualTrades(prev => prev.map(m => m.date === t.date ? {
-        ...m, pnl: m.pnl + t.pnl, trades: m.trades + 1,
-        wins: t.pnl > 0 ? m.wins + 1 : m.wins,
-        losses: t.pnl < 0 ? m.losses + 1 : m.losses,
-        win_rate: Math.round(((t.pnl > 0 ? m.wins + 1 : m.wins) / (m.trades + 1)) * 100),
-        avg_r: 0,
-      } : m))
-    } else {
-      setManualTrades(prev => [...prev, {
-        date: t.date, pnl: t.pnl, trades: 1,
-        wins: t.pnl > 0 ? 1 : 0, losses: t.pnl < 0 ? 1 : 0,
-        win_rate: t.pnl > 0 ? 100 : 0, avg_r: 0,
-      }])
-    }
+    addLocalTrade(t)
   }
 
   const baseTrades = isDemo ? DEMO_TRADES : []
-  const trades = [...baseTrades, ...(!isDemo ? manualTrades : [])]
-  const balance = isDemo ? 52480 : manualTrades.reduce((s, t) => s + t.pnl, 0)
+  const manualStats = localTrades.reduce((acc, t) => {
+    const existing = acc.find(d => d.date === t.date)
+    if (existing) {
+      existing.pnl += t.pnl; existing.trades += 1
+      if (t.pnl > 0) existing.wins += 1; else existing.losses += 1
+      existing.win_rate = Math.round((existing.wins / existing.trades) * 100)
+    } else {
+      acc.push({ date: t.date, pnl: t.pnl, trades: 1, wins: t.pnl > 0 ? 1 : 0, losses: t.pnl < 0 ? 1 : 0, win_rate: t.pnl > 0 ? 100 : 0, avg_r: 0 })
+    }
+    return acc
+  }, [] as DailyStat[])
+
+  const trades = isDemo ? baseTrades : manualStats
+  const balance = isDemo ? 52480 : localTrades.reduce((s, t) => s + t.pnl, 0)
   const startBalance = isDemo ? 45000 : 0
 
   const statsMap = useMemo(() => {
