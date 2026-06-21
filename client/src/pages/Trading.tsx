@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   TrendingUp, TrendingDown, BarChart2, X, RotateCcw, Star,
-  ChevronUp, ChevronDown, Bell, Calculator, History, Trash2,
+  ChevronUp, ChevronDown, Bell, Calculator, History, Trash2, Swords,
 } from 'lucide-react'
 import { useDemoStore, calcPnl } from '@/store/demoStore'
 import { useLivePrices, getPipSize, BASE_PRICES } from '@/hooks/useLivePrices'
 import { format } from 'date-fns'
 import { useAppStore } from '@/store/appStore'
 import { useNavigate } from 'react-router-dom'
+import PracticeMode from '@/components/trading/PracticeMode'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const SYMBOLS = ['EURUSD','GBPUSD','USDJPY','AUDUSD','USDCAD','USDCHF','NZDUSD','XAUUSD','GBPJPY','EURJPY','EURGBP','GBPCHF']
@@ -398,6 +399,7 @@ export default function Trading() {
   const [activeTab, setActiveTab] = useState<'positions'|'history'>('positions')
   const [rightPanel, setRightPanel] = useState<'watchlist'|'alerts'|'stats'>('watchlist')
   const [starred, setStarred] = useState(['EURUSD','XAUUSD'])
+  const [practiceMode, setPracticeMode] = useState(false)
   const { prices, direction } = useLivePrices(SYMBOLS)
   const { balance, positions, history, closePosition, resetAccount } = useDemoStore()
 
@@ -450,15 +452,17 @@ export default function Trading() {
           </span>
           <span className="flex items-center px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-semibold">DEMO</span>
 
-          {/* Layout switcher */}
-          <div className="flex items-center gap-0.5 ml-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
-            {LAYOUTS.map(l => (
-              <button key={l.id} onClick={() => setLayout(l.id)} title={l.label}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition ${layout===l.id ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}>
-                {l.id}
-              </button>
-            ))}
-          </div>
+          {/* Layout switcher — hidden in practice mode */}
+          {!practiceMode && (
+            <div className="flex items-center gap-0.5 ml-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
+              {LAYOUTS.map(l => (
+                <button key={l.id} onClick={() => setLayout(l.id)} title={l.label}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition ${layout===l.id ? 'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}>
+                  {l.id}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="flex-1" />
           <div className="flex items-center gap-3 text-xs text-gray-400">
@@ -466,15 +470,30 @@ export default function Trading() {
             <span>P&L: <strong className={openPnl>=0?'text-emerald-600':'text-red-500'}>{openPnl>=0?'+':''}${openPnl.toFixed(2)}</strong></span>
             <span>Equity: <strong className="text-gray-700 dark:text-gray-300">${equity.toFixed(0)}</strong></span>
           </div>
-          <button onClick={() => setShowOrder(true)} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg transition shadow-sm">New Order</button>
+          {!practiceMode && (
+            <button onClick={() => setShowOrder(true)} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg transition shadow-sm">New Order</button>
+          )}
+          {/* Practice Mode toggle */}
           <button
-            onClick={() => navigate(`/replay?symbol=${activeSymbol}`)}
-            title="Open this symbol in Replay"
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
-            <History className="w-3.5 h-3.5"/> Replay
+            onClick={() => setPracticeMode(p => !p)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition border ${
+              practiceMode
+                ? 'bg-brand-500 text-white border-brand-500 shadow shadow-brand-500/30'
+                : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}>
+            <Swords className="w-3.5 h-3.5" />
+            {practiceMode ? 'Live Mode' : 'Practice'}
           </button>
-          <button onClick={() => setShowReset(true)} title="Reset demo" className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition"><RotateCcw className="w-3.5 h-3.5" /></button>
+          {!practiceMode && (
+            <button onClick={() => setShowReset(true)} title="Reset demo" className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition"><RotateCcw className="w-3.5 h-3.5" /></button>
+          )}
         </div>
+
+        {/* Practice mode fills the rest; live mode shows chart grid */}
+        {practiceMode ? (
+          <PracticeMode initialSymbol={activeSymbol} onClose={() => setPracticeMode(false)} />
+        ) : (
+          <>
 
         {/* Starred bar */}
         <StarredBar starred={starred} prices={prices} direction={direction} active={activeSymbol} onSelect={s => { setSlots(prev => { const n=[...prev]; n[activeSlot]=s; return n }); }} onUnstar={toggleStar} />
@@ -561,9 +580,10 @@ export default function Trading() {
             )}
           </div>
         </div>
+        </> // end live mode
+        )}
       </div>
-
-      {/* Right sidebar */}
+      {!practiceMode && (
       <div className="w-52 border-l border-gray-100 dark:border-gray-800 flex flex-col bg-white dark:bg-[#141414] shrink-0">
         {/* Sidebar tab switcher */}
         <div className="flex border-b border-gray-100 dark:border-gray-800 shrink-0">
@@ -612,6 +632,7 @@ export default function Trading() {
           {rightPanel === 'stats' && <StatsPanel prices={prices} activeSymbol={activeSymbol} />}
         </div>
       </div>
+      )} {/* end !practiceMode sidebar */}
     </div>
   )
 }
