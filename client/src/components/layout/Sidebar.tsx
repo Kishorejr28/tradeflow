@@ -12,6 +12,7 @@ import {
   Moon,
   Sun,
   LogOut,
+  History,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAppStore } from '@/store/appStore'
@@ -19,6 +20,7 @@ import { useAppStore } from '@/store/appStore'
 const NAV = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/trading', icon: TrendingUp, label: 'Trading' },
+  { to: '/replay', icon: History, label: 'Replay' },
   { to: '/edge', icon: BookOpen, label: 'Edge' },
   { to: '/journal', icon: FileText, label: 'Journal' },
   { to: '/notebook', icon: NotebookPen, label: 'Notebook' },

@@ -6,6 +6,7 @@ import Layout from '@/components/layout/Layout'
 import AuthPage from '@/pages/AuthPage'
 import Dashboard from '@/pages/Dashboard'
 import Trading from '@/pages/Trading'
+import Replay from '@/pages/Replay'
 import Edge from '@/pages/Edge'
 import Journal from '@/pages/Journal'
 import Notebook from '@/pages/Notebook'
@@ -97,6 +98,7 @@ export default function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="trading" element={<Trading />} />
+          <Route path="replay" element={<Replay />} />
           <Route path="edge" element={<Edge />} />
           <Route path="journal" element={<Journal />} />
           <Route path="notebook" element={<Notebook />} />
