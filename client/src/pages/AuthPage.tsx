@@ -67,12 +67,17 @@ export default function AuthPage() {
     navigate('/app/dashboard')
   }
 
-  // Local admin bypass — no Supabase needed
-  const checkAdminCredentials = (emailOrUser: string, pw: string) => {
-    return (
-      (emailOrUser.toLowerCase() === 'kishore' || emailOrUser.toLowerCase() === 'kishorejr28@gmail.com') &&
-      pw === 'TradeFlow@2026'
-    )
+  // Local credentials — all bypass Supabase, work offline
+  const LOCAL_CREDS: Record<string, { password: string; name: string; plan: 'free'|'pro'|'admin'; id: string; dest: string }> = {
+    'kishore':                   { password:'TradeFlow@2026', name:'Kishore JR',  plan:'admin', id:'admin-local',       dest:'/admin' },
+    'kishorejr28@gmail.com':     { password:'TradeFlow@2026', name:'Kishore JR',  plan:'admin', id:'admin-local',       dest:'/admin' },
+    'user_trader@tradeflow.app': { password:'Trader@123',     name:'Trader User', plan:'free',  id:'dummy-trader-001',  dest:'/app/dashboard' },
+    'user_pro@tradeflow.app':    { password:'ProUser@123',    name:'Pro User',    plan:'pro',   id:'dummy-pro-001',     dest:'/app/dashboard' },
+  }
+
+  const checkLocalCredentials = (emailOrUser: string, pw: string) => {
+    const cred = LOCAL_CREDS[emailOrUser.toLowerCase().trim()]
+    return cred?.password === pw ? cred : null
   }
 
   const handleGoogleLogin = async () => {
@@ -89,16 +94,16 @@ export default function AuthPage() {
     e.preventDefault()
     setError(''); setMessage(''); setLoading(true)
 
-    // Admin bypass — works without Supabase
-    if (mode === 'signin' && checkAdminCredentials(email, password)) {
-      setUser({
-        id: 'admin-local', email: 'kishorejr28@gmail.com', full_name: 'Kishore JR',
-        timezone: 'UTC', account_currency: 'USD', created_at: new Date().toISOString(),
-      })
-      setUserPlan('admin')
-      setLoading(false)
-      navigate('/admin')
-      return
+    // Check local credentials first (works without Supabase)
+    if (mode === 'signin') {
+      const cred = checkLocalCredentials(email, password)
+      if (cred) {
+        setUser({ id: cred.id, email, full_name: cred.name, timezone: 'UTC', account_currency: 'USD', created_at: new Date().toISOString() })
+        setUserPlan(cred.plan)
+        setLoading(false)
+        navigate(cred.dest)
+        return
+      }
     }
 
     try {
