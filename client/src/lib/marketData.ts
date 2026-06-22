@@ -165,6 +165,27 @@ function parseYahoo(json: any): OHLCV[] | null {
   }
 }
 
+// ── Live quote (current price only, for watchlist) ────────────────────────────
+export async function fetchLiveQuote(sym: string): Promise<number | null> {
+  const yahooSym = resolveYahooSymbol(sym)
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=1m&range=1d`
+  const tryFetch = async (fetchUrl: string, asProxy = false) => {
+    const res = await fetch(fetchUrl, { headers: { Accept: 'application/json' } })
+    if (!res.ok) throw new Error()
+    const json = await res.json()
+    return asProxy ? JSON.parse(json.contents) : json
+  }
+  let json: any = null
+  try { json = await tryFetch(url) } catch {
+    try { json = await tryFetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, true) } catch { return null }
+  }
+  try {
+    const result = json?.chart?.result?.[0]
+    const meta   = result?.meta
+    return meta?.regularMarketPrice ?? meta?.previousClose ?? null
+  } catch { return null }
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 export type DataSource = 'real' | 'synthetic'
 export interface FetchResult { data: OHLCV[]; source: DataSource; symbol: string }

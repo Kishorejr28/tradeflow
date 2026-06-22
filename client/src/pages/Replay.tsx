@@ -6,7 +6,7 @@ import {
 import { Play, Pause, SkipBack, SkipForward, Search, RefreshCw, Scissors, X, Wifi, WifiOff } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { useSearchParams } from 'react-router-dom'
-import { fetchCandles } from '@/lib/marketData'
+import { fetchCandles, fetchLiveQuote } from '@/lib/marketData'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface OHLCV {
@@ -439,6 +439,7 @@ export default function Replay() {
   const [curBar, setCurBar] = useState<OHLCV|null>(null)
   const [loading, setLoading] = useState(false)
   const [dataSource, setDataSource] = useState<'real'|'synthetic'>('synthetic')
+  const [livePrice, setLivePrice] = useState<number|null>(null)
 
   // ── All refs — no stale closures ──────────────────────────────────────────
   const mainRef  = useRef<HTMLDivElement>(null)
@@ -583,8 +584,15 @@ export default function Replay() {
     setPlaying(false)
     setLoading(true)
     setCurBar(null)
+    setLivePrice(null)
 
-    const result = await fetchCandles(newSym, newTf, genCandles)
+    // Fetch live current price in parallel with historical candles
+    const [result, lp] = await Promise.all([
+      fetchCandles(newSym, newTf, genCandles),
+      fetchLiveQuote(newSym),
+    ])
+    setLivePrice(lp)
+
     const fresh = result.data
     setDataSource(result.source)
     setLoading(false)
@@ -826,6 +834,19 @@ export default function Replay() {
 
         {/* Right panel — paper trading */}
         <div className="w-48 border-l border-gray-100 dark:border-gray-800 flex flex-col shrink-0 bg-white dark:bg-[#141414]">
+          {/* Live current price from Yahoo */}
+          {livePrice !== null && (
+            <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800 bg-brand-50 dark:bg-brand-500/10">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-brand-600 dark:text-brand-400 uppercase tracking-wide">Live Price Now</span>
+                <Wifi className="w-2.5 h-2.5 text-brand-500"/>
+              </div>
+              <div className="text-lg font-bold font-mono text-brand-700 dark:text-brand-300 tabular-nums">
+                {livePrice.toFixed(dp)}
+              </div>
+              <p className="text-[9px] text-brand-500/70 mt-0.5">Yahoo Finance · real-time</p>
+            </div>
+          )}
           {/* Current bar */}
           {curBar&&(
             <div className="px-3 py-2.5 border-b border-gray-100 dark:border-gray-800">

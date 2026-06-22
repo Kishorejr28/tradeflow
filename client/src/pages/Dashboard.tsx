@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   isSameMonth, isToday, getDay,
@@ -7,6 +7,7 @@ import {
   TrendingUp, TrendingDown, Target, Activity,
   ChevronLeft, ChevronRight, ArrowUpRight, PlusCircle, Plus,
   X, BookOpen, FileText, BarChart2, Newspaper, Leaf, NotebookPen, History,
+  Layout, Sparkles, Clock,
 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useIsDemo } from '@/hooks/useIsDemo'
@@ -164,6 +165,143 @@ function EmptyEquity() {
     <div className="h-48 flex flex-col items-center justify-center gap-2">
       <TrendingUp className="w-8 h-8 text-gray-200 dark:text-gray-700" />
       <p className="text-xs text-gray-400">Your equity curve will appear here</p>
+    </div>
+  )
+}
+
+// ── Multi-Chart Analysis Widget ───────────────────────────────────────────────
+const CHART_SYMBOLS = ['EURUSD','GBPUSD','XAUUSD','BTCUSD','AAPL','NVDA','SPX500','USDJPY']
+
+function TVMiniChart({ symbol, theme }: { symbol: string; theme: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!ref.current) return
+    ref.current.innerHTML = ''
+    const s = document.createElement('script')
+    s.src = 'https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js'
+    s.async = true
+    s.innerHTML = JSON.stringify({
+      symbol: symbol === 'XAUUSD' ? 'TVC:GOLD' : symbol === 'SPX500' ? 'SP:SPX' : symbol.includes('USD') && !symbol.startsWith('USD') ? `FX:${symbol}` : symbol,
+      width: '100%', height: '100%',
+      locale: 'en',
+      dateRange: '1D',
+      colorTheme: theme,
+      isTransparent: false,
+      autosize: true,
+      largeChartUrl: '',
+    })
+    ref.current.appendChild(s)
+    return () => { if (ref.current) ref.current.innerHTML = '' }
+  }, [symbol, theme])
+  return <div ref={ref} className="w-full h-full tradingview-widget-container" />
+}
+
+function MultiChartWidget() {
+  const { theme } = useAppStore()
+  const isDark = theme === 'dark'
+  const [layout, setLayout] = useState<2|4>(4)
+  const [symbols, setSymbols] = useState(['EURUSD','XAUUSD','BTCUSD','AAPL'])
+  const [editIdx, setEditIdx] = useState<number|null>(null)
+  const [editVal, setEditVal] = useState('')
+
+  const gridCls = layout === 2 ? 'grid-cols-2 grid-rows-1' : 'grid-cols-2 grid-rows-2'
+  const shown = symbols.slice(0, layout)
+
+  return (
+    <div className="mt-6 card overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+        <div className="flex items-center gap-2">
+          <Layout className="w-4 h-4 text-brand-500" />
+          <h2 className="font-semibold text-gray-900 dark:text-white text-sm">Multi-Chart Analysis</h2>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 font-medium">Live</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-gray-400">Layout:</span>
+          {([2, 4] as const).map(n => (
+            <button key={n} onClick={() => setLayout(n)}
+              className={`px-2.5 py-1 text-[11px] rounded font-medium transition ${layout === n ? 'bg-brand-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
+              {n === 2 ? '2 charts' : '4 charts'}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className={`grid gap-px bg-gray-100 dark:bg-gray-800 ${gridCls}`} style={{ height: layout === 2 ? 280 : 480 }}>
+        {shown.map((sym, i) => (
+          <div key={`${sym}-${i}`} className="relative bg-white dark:bg-[#141414] group">
+            <TVMiniChart symbol={sym} theme={isDark ? 'dark' : 'light'} />
+            {/* Symbol edit overlay */}
+            {editIdx === i ? (
+              <div className="absolute top-1 left-1 z-20 flex items-center gap-1">
+                <input autoFocus value={editVal} onChange={e => setEditVal(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { setSymbols(p => { const n=[...p]; n[i]=editVal.toUpperCase(); return n }); setEditIdx(null) } if (e.key === 'Escape') setEditIdx(null) }}
+                  className="text-[10px] px-2 py-1 rounded border border-brand-400 bg-white dark:bg-gray-800 text-gray-900 dark:text-white w-24 focus:outline-none"
+                />
+                <button onClick={() => { setSymbols(p => { const n=[...p]; n[i]=editVal.toUpperCase(); return n }); setEditIdx(null) }} className="text-[10px] px-1.5 py-1 bg-brand-500 text-white rounded">✓</button>
+              </div>
+            ) : (
+              <button onClick={() => { setEditVal(sym); setEditIdx(i) }}
+                className="absolute top-1 right-1 z-20 opacity-0 group-hover:opacity-100 transition px-1.5 py-0.5 bg-black/50 text-white text-[10px] rounded">
+                change
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-800 flex items-center gap-2 flex-wrap">
+        <span className="text-[10px] text-gray-400">Quick switch:</span>
+        {CHART_SYMBOLS.map(s => (
+          <button key={s} onClick={() => { if (editIdx !== null) { setSymbols(p => { const n=[...p]; n[editIdx]=s; return n }); setEditIdx(null) } else { setSymbols(p => { const n=[...p]; n[0]=s; return n }) } }}
+            className="text-[10px] px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-brand-400 hover:text-brand-600 dark:hover:text-brand-400 transition">
+            {s}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Pro Free Limited-Time Banner ──────────────────────────────────────────────
+const PRO_FREE_UNTIL = new Date('2026-09-30') // update when ready to charge
+
+function ProFreeBanner() {
+  const [dismissed, setDismissed] = useState(() => localStorage.getItem('tf-pro-banner-dismissed') === '1')
+  if (dismissed) return null
+
+  const daysLeft = Math.max(0, Math.ceil((PRO_FREE_UNTIL.getTime() - Date.now()) / 86400000))
+
+  return (
+    <div className="mt-6 rounded-2xl bg-gradient-to-r from-brand-500 via-purple-600 to-brand-600 p-px shadow-xl shadow-brand-500/20">
+      <div className="rounded-2xl bg-white dark:bg-[#0f0f0f] px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center shrink-0 shadow-lg shadow-brand-500/30">
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="font-bold text-gray-900 dark:text-white text-sm">All Pro features are FREE right now</p>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 font-bold border border-brand-200 dark:border-brand-700">
+                EARLY ACCESS
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {daysLeft > 0
+                ? `${daysLeft} days remaining — AI coach, unlimited journal, prop simulator and more. No card needed.`
+                : 'Early access period has ended. Upgrade to keep Pro features.'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <a href="#pricing" onClick={() => { localStorage.setItem('tf-pro-banner-dismissed','1'); setDismissed(true) }}
+            className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg transition shadow-sm">
+            Learn about Pro →
+          </a>
+          <button onClick={() => { localStorage.setItem('tf-pro-banner-dismissed','1'); setDismissed(true) }}
+            className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -404,6 +542,12 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* ── Multi-Chart Analysis ── */}
+      <MultiChartWidget />
+
+      {/* ── Pro Free Banner ── */}
+      <ProFreeBanner />
     </div>
   )
 }
