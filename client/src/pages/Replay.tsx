@@ -607,277 +607,214 @@ export default function Replay() {
   const chgP  = prev ? (chg/prev.close)*100 : 0
 
   return (
-    <div className="flex h-full overflow-hidden bg-white dark:bg-[#141414]">
+    <div className="flex flex-col h-full overflow-hidden bg-white dark:bg-[#141414]">
 
-      {/* ── Left panel ───────────────────────────────────────────────────── */}
-      <div className="w-56 border-r border-gray-100 dark:border-gray-800 flex flex-col shrink-0 bg-white dark:bg-[#141414] overflow-y-auto">
+      {/* ── Top bar (TradingView-style) ──────────────────────────────────── */}
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-100 dark:border-gray-800 shrink-0 bg-white dark:bg-[#141414] flex-wrap">
 
-        {/* Symbol search */}
-        <div className="p-3 border-b border-gray-100 dark:border-gray-800">
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Search Instrument</p>
-          <SymbolSearch current={sym} onSelect={s=>{setSym(s)}} />
-          <p className="text-[10px] text-gray-500 mt-1.5">Current: <span className="font-semibold text-brand-500">{sym}</span></p>
-        </div>
+        {/* Symbol search — inline, leftmost */}
+        <SymbolSearch current={sym} onSelect={s=>setSym(s)} />
 
-        {/* Asset groups */}
-        <div className="p-3 border-b border-gray-100 dark:border-gray-800">
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Instrument</p>
-          {ASSET_GROUPS.map(g=>(
-            <div key={g.group} className="mb-2.5">
-              <p className="text-[10px] text-gray-400 font-semibold mb-1">{g.group}</p>
-              <div className="flex flex-wrap gap-1">
-                {g.assets.map(a=>(
-                  <button key={a} onClick={()=>setSym(a)}
-                    className={`px-1.5 py-0.5 text-[10px] rounded font-medium transition border ${sym===a?'bg-brand-500 text-white border-brand-500':'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-brand-400 dark:hover:border-brand-600'}`}>
-                    {a}
-                  </button>
-                ))}
-              </div>
-            </div>
+        {/* Timeframe buttons */}
+        <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
+          {TIMEFRAMES.map(t=>(
+            <button key={t} onClick={()=>setTf(t)}
+              className={`px-2 py-1 text-[11px] rounded font-medium transition ${tf===t?'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 shadow-sm':'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}>
+              {t}
+            </button>
           ))}
         </div>
 
-        {/* Timeframe */}
-        <div className="p-3 border-b border-gray-100 dark:border-gray-800">
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Timeframe</p>
-          <div className="flex flex-wrap gap-1">
-            {TIMEFRAMES.map(t=>(
-              <button key={t} onClick={()=>setTf(t)}
-                className={`px-2.5 py-1 text-[11px] rounded font-medium transition ${tf===t?'bg-brand-500 text-white':'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
-                {t}
-              </button>
-            ))}
-          </div>
+        {/* Indicator toggles */}
+        <div className="flex items-center gap-0.5">
+          {([
+            {l:'SMA',c:'bg-amber-400',v:showSMA,s:setShowSMA},
+            {l:'EMA',c:'bg-blue-500', v:showEMA,s:setShowEMA},
+            {l:'BB', c:'bg-purple-400',v:showBB, s:setShowBB},
+            {l:'Vol',c:'bg-sky-400',  v:showVol,s:setShowVol},
+            {l:'RSI',c:'bg-yellow-500',v:showRSI,s:setShowRSI},
+            {l:'MACD',c:'bg-cyan-500',v:showMACD,s:setShowMACD},
+          ] as const).map(ind=>(
+            <button key={ind.l} onClick={()=>ind.s((x:boolean)=>!x)}
+              className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition border ${ind.v?'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200':'border-transparent text-gray-400 hover:border-gray-200 dark:hover:border-gray-700'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${ind.c}`}/>{ind.l}
+            </button>
+          ))}
         </div>
 
-        {/* Indicators */}
-        <div className="p-3 border-b border-gray-100 dark:border-gray-800">
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Indicators</p>
-          <div className="space-y-1.5">
-            {[
-              {label:'SMA 20',         color:'bg-amber-400',  val:showSMA,  set:setShowSMA},
-              {label:'EMA 50',         color:'bg-blue-500',   val:showEMA,  set:setShowEMA},
-              {label:'Bollinger Bands',color:'bg-purple-400', val:showBB,   set:setShowBB},
-              {label:'Volume',         color:'bg-sky-400',    val:showVol,  set:setShowVol},
-              {label:'RSI (14)',       color:'bg-yellow-500', val:showRSI,  set:setShowRSI},
-              {label:'MACD',           color:'bg-cyan-500',   val:showMACD, set:setShowMACD},
-            ].map(({label,color,val,set})=>(
-              <label key={label} className="flex items-center gap-2 cursor-pointer">
-                <span className={`w-2 h-2 rounded-full shrink-0 ${color}`}/>
-                <input type="checkbox" checked={val} onChange={e=>set(e.target.checked)} className="accent-brand-500 w-3.5 h-3.5"/>
-                <span className="text-[11px] text-gray-600 dark:text-gray-300">{label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
+        {/* Divider */}
+        <div className="w-px h-4 bg-gray-200 dark:bg-gray-700"/>
 
-        {/* Reload */}
-        <div className="p-3">
-          <button onClick={()=>loadData(sym,tf)}
-            className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-medium rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition">
-            <RefreshCw className="w-3.5 h-3.5"/> Reload chart
-          </button>
-        </div>
-      </div>
-
-      {/* ── Main chart area ───────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0">
-
-        {/* OHLC info bar */}
-        <div className="flex items-center gap-3 px-4 py-2 border-b border-gray-100 dark:border-gray-800 shrink-0 flex-wrap bg-white dark:bg-[#141414]">
-          <span className="text-sm font-bold text-gray-900 dark:text-white">{sym}</span>
-          <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded font-medium">{tf}</span>
-          {/* Data source badge */}
-          {dataSource === 'real' ? (
-            <span className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <Wifi className="w-2.5 h-2.5"/> Live data
-            </span>
-          ) : (
-            <span className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <WifiOff className="w-2.5 h-2.5"/> Simulated
-            </span>
-          )}
-          {curBar ? (
-            <>
-              <span className="text-xs text-gray-500">O <span className="font-mono text-gray-700 dark:text-gray-300">{curBar.open.toFixed(dp)}</span></span>
-              <span className="text-xs text-gray-500">H <span className="font-mono text-emerald-600">{curBar.high.toFixed(dp)}</span></span>
-              <span className="text-xs text-gray-500">L <span className="font-mono text-red-500">{curBar.low.toFixed(dp)}</span></span>
-              <span className="text-xs text-gray-500">C <span className={`font-mono font-bold ${chg>=0?'text-emerald-600':'text-red-500'}`}>{curBar.close.toFixed(dp)}</span></span>
-              <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${chg>=0?'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400':'bg-red-50 dark:bg-red-500/10 text-red-500'}`}>
-                {chg>=0?'+':''}{chg.toFixed(dp)} ({chgP.toFixed(2)}%)
-              </span>
-            </>
-          ) : <span className="text-xs text-gray-400">Loading…</span>}
-          <div className="flex-1"/>
-          <span className="text-[11px] text-gray-400 font-mono">{ph} / {total} bars</span>
-        </div>
-
-        {/* Chart */}
-        <div className="flex-1 min-h-0 relative">
-          <div ref={mainRef} className={`w-full h-full ${scissor?'cursor-crosshair':''}`}/>
-          {/* Loading overlay */}
-          {loading && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-[#141414]/80 backdrop-blur-sm z-10">
-              <RefreshCw className="w-8 h-8 text-brand-500 animate-spin mb-3"/>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Fetching real market data…</p>
-              <p className="text-xs text-gray-400 mt-1">{sym}</p>
-            </div>
-          )}
-        </div>
-
-        {/* RSI pane */}
-        {showRSI&&(
-          <div className="shrink-0 border-t border-gray-100 dark:border-gray-800 relative" style={{height:90}}>
-            <span className="absolute top-1 left-2 text-[10px] font-semibold text-amber-500 z-10 pointer-events-none select-none">RSI (14)</span>
-            <div ref={rsiRef} className="w-full h-full"/>
-          </div>
-        )}
-        {/* MACD pane */}
-        {showMACD&&(
-          <div className="shrink-0 border-t border-gray-100 dark:border-gray-800 relative" style={{height:90}}>
-            <span className="absolute top-1 left-2 text-[10px] font-semibold text-cyan-500 z-10 pointer-events-none select-none">MACD (12/26/9)</span>
-            <div ref={macdRef} className="w-full h-full"/>
-          </div>
-        )}
-
-        {/* ── Playback bar ─────────────────────────────────────────────── */}
-        <div className="shrink-0 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-[#141414] px-3 py-2 flex items-center gap-2">
-          {/* Scrubber — works via seek() which calls renderBars immediately */}
-          <span className="text-[10px] text-gray-400 shrink-0 w-12 text-right font-mono">{ph}</span>
-          <input
-            type="range"
-            min={1}
-            max={total}
-            value={ph}
-            onMouseDown={()=>setPlaying(false)}
-            onChange={e=>seek(Number(e.target.value))}
-            className="flex-1 accent-brand-500 cursor-pointer"
-            style={{height:'4px'}}
-          />
-          <span className="text-[10px] text-gray-400 shrink-0 w-10 font-mono">{total}</span>
-
-          {/* Step back */}
-          <button onClick={()=>seek(ph-1)} className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition"><SkipBack className="w-4 h-4"/></button>
-
-          {/* Play/Pause */}
-          <button onClick={()=>setPlaying(p=>!p)}
-            className="p-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white transition shadow-lg shadow-brand-500/30">
-            {playing?<Pause className="w-4 h-4"/>:<Play className="w-4 h-4"/>}
-          </button>
-
-          {/* Step forward */}
-          <button onClick={()=>seek(ph+1)} className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition"><SkipForward className="w-4 h-4"/></button>
-
-          {/* +10 */}
-          <button onClick={()=>seek(ph+10)}
-            className="px-2.5 py-1.5 text-[11px] font-medium rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
-            +10
-          </button>
-
-          {/* Speed */}
-          <div className="flex items-center gap-0.5">
-            {SPEEDS.map(s=>(
-              <button key={s} onClick={()=>setSpeed(s)}
-                className={`px-1.5 py-1 text-[10px] rounded font-medium transition ${speed===s?'bg-brand-500 text-white':'bg-gray-100 dark:bg-gray-800 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
-                {s}×
-              </button>
-            ))}
-          </div>
-
-          {/* Scissor */}
-          <button onClick={()=>{setPlaying(false);setScissor(s=>!s)}}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition border ${scissor?'bg-amber-500 text-white border-amber-500':'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
-            <Scissors className="w-3.5 h-3.5"/>
-            {scissor?'Click candle…':'Cut point'}
-          </button>
-        </div>
-      </div>
-
-      {/* ── Right panel — like Trading page ──────────────────────────────── */}
-      <div className="w-52 border-l border-gray-100 dark:border-gray-800 flex flex-col bg-white dark:bg-[#141414] shrink-0">
-
-        {/* Live price card */}
-        <div className="px-3 py-3 border-b border-gray-100 dark:border-gray-800">
-          <div className="flex items-center justify-between mb-1">
+        {/* OHLC */}
+        {curBar ? (
+          <>
             <span className="text-xs font-bold text-gray-800 dark:text-white">{sym}</span>
-            <span className="text-[10px] bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded font-semibold">PRACTICE</span>
-          </div>
-          {curBar&&(
-            <>
-              <div className="text-lg font-bold tabular-nums font-mono text-gray-900 dark:text-white">{curBar.close.toFixed(dp)}</div>
-              <div className={`text-xs font-medium ${chg>=0?'text-emerald-600':'text-red-500'}`}>
-                {chg>=0?'+':''}{chg.toFixed(dp)} ({chgP.toFixed(2)}%)
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* OHLCV detail */}
-        {curBar&&(
-          <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800 space-y-1">
-            {[
-              {label:'Open',  val:curBar.open.toFixed(dp),  color:'text-gray-700 dark:text-gray-300'},
-              {label:'High',  val:curBar.high.toFixed(dp),  color:'text-emerald-600 dark:text-emerald-400'},
-              {label:'Low',   val:curBar.low.toFixed(dp),   color:'text-red-500 dark:text-red-400'},
-              {label:'Close', val:curBar.close.toFixed(dp), color:chg>=0?'text-emerald-600 dark:text-emerald-400':'text-red-500 dark:text-red-400'},
-              {label:'Volume',val:curBar.volume.toLocaleString(),color:'text-sky-500'},
-            ].map(row=>(
-              <div key={row.label} className="flex justify-between text-[11px]">
-                <span className="text-gray-400">{row.label}</span>
-                <span className={`font-mono font-semibold ${row.color}`}>{row.val}</span>
-              </div>
-            ))}
-            <div className="flex justify-between text-[11px]">
-              <span className="text-gray-400">Bar</span>
-              <span className="font-mono text-gray-600 dark:text-gray-400">{ph} / {total}</span>
-            </div>
-          </div>
+            <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">{tf}</span>
+            <span className="text-xs text-gray-500">O <span className="font-mono text-gray-700 dark:text-gray-300">{curBar.open.toFixed(dp)}</span></span>
+            <span className="text-xs text-gray-500">H <span className="font-mono text-emerald-600">{curBar.high.toFixed(dp)}</span></span>
+            <span className="text-xs text-gray-500">L <span className="font-mono text-red-500">{curBar.low.toFixed(dp)}</span></span>
+            <span className="text-xs text-gray-500">C <span className={`font-mono font-bold ${chg>=0?'text-emerald-600':'text-red-500'}`}>{curBar.close.toFixed(dp)}</span></span>
+            <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${chg>=0?'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400':'bg-red-50 dark:bg-red-500/10 text-red-500'}`}>
+              {chg>=0?'+':''}{chg.toFixed(dp)} ({chgP.toFixed(2)}%)
+            </span>
+          </>
+        ) : (
+          <span className="text-xs text-gray-400">{sym} · {tf}</span>
         )}
 
-        {/* Paper trading */}
-        <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800">
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Paper Trading</p>
-          <div className="space-y-1.5 text-[11px] mb-2">
-            <div className="flex justify-between"><span className="text-gray-500">Balance</span><span className={`font-bold ${bal>=10000?'text-emerald-600':'text-red-500'}`}>${bal.toLocaleString()}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">Net P&L</span><span className={`font-semibold ${totalPnl>=0?'text-emerald-600':'text-red-500'}`}>{totalPnl>=0?'+':''}${totalPnl.toFixed(2)}</span></div>
-            {closed.length>0&&<div className="flex justify-between"><span className="text-gray-500">Win rate</span><span className="font-semibold text-gray-700 dark:text-gray-300">{Math.round(wins/closed.length*100)}%</span></div>}
-            {livePnl!==null&&<div className="flex justify-between pt-1 border-t border-gray-200 dark:border-gray-700"><span className="text-gray-500">Live P&L</span><span className={`font-bold ${livePnl>=0?'text-emerald-500':'text-red-500'}`}>{livePnl>=0?'+':''}${livePnl.toFixed(2)}</span></div>}
-          </div>
-          <div className="mb-2">
-            <label className="block text-[10px] text-gray-400 mb-1">Lots / Units</label>
-            <input value={lots} onChange={e=>setLots(e.target.value)} className="w-full text-xs px-2 py-1.5 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-brand-400"/>
-          </div>
-          {openT?(
-            <div className="space-y-1.5">
-              <div className="p-2 rounded bg-gray-100 dark:bg-gray-800 text-[11px]">
-                <span className={`font-bold uppercase ${openT.type==='buy'?'text-emerald-600':'text-red-500'}`}>{openT.type}</span>
-                {' '}@ {openT.entryPrice.toFixed(dp)} · {openT.lots}L
+        {/* Data source badge */}
+        {dataSource==='real'
+          ? <span className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><Wifi className="w-2.5 h-2.5"/> Live data</span>
+          : <span className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400"><WifiOff className="w-2.5 h-2.5"/> Simulated</span>
+        }
+
+        <div className="flex-1"/>
+
+        {/* Bar counter + reload */}
+        <span className="text-[10px] text-gray-400 font-mono">{ph}/{total}</span>
+        <button onClick={()=>loadData(sym,tf)} title="Reload" className="p-1.5 rounded text-gray-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition">
+          <RefreshCw className={`w-3.5 h-3.5 ${loading?'animate-spin':''}`}/>
+        </button>
+      </div>
+
+      {/* ── Chart + right panel ──────────────────────────────────────────── */}
+      <div className="flex flex-1 min-h-0">
+
+        {/* Chart column */}
+        <div className="flex-1 flex flex-col min-w-0">
+
+          {/* Main chart */}
+          <div className="flex-1 min-h-0 relative">
+            <div ref={mainRef} className={`w-full h-full ${scissor?'cursor-crosshair':''}`}/>
+            {loading&&(
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-[#141414]/80 backdrop-blur-sm z-10">
+                <RefreshCw className="w-8 h-8 text-brand-500 animate-spin mb-3"/>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Fetching real market data…</p>
+                <p className="text-xs text-gray-400 mt-1">{sym}</p>
               </div>
-              <button onClick={closeTrade} className="w-full py-1.5 text-xs font-bold rounded-lg bg-red-500 hover:bg-red-600 text-white transition">Close Trade</button>
-            </div>
-          ):(
-            <div className="grid grid-cols-2 gap-1.5">
-              <button onClick={()=>enterTrade('buy')} className="py-2 text-xs font-bold rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition">▲ BUY</button>
-              <button onClick={()=>enterTrade('sell')} className="py-2 text-xs font-bold rounded-lg bg-red-500 hover:bg-red-600 text-white transition">▼ SELL</button>
+            )}
+          </div>
+
+          {/* RSI pane */}
+          {showRSI&&(
+            <div className="shrink-0 border-t border-gray-100 dark:border-gray-800 relative" style={{height:90}}>
+              <span className="absolute top-1 left-2 text-[10px] font-semibold text-amber-500 z-10 pointer-events-none select-none">RSI (14)</span>
+              <div ref={rsiRef} className="w-full h-full"/>
             </div>
           )}
+          {showMACD&&(
+            <div className="shrink-0 border-t border-gray-100 dark:border-gray-800 relative" style={{height:90}}>
+              <span className="absolute top-1 left-2 text-[10px] font-semibold text-cyan-500 z-10 pointer-events-none select-none">MACD</span>
+              <div ref={macdRef} className="w-full h-full"/>
+            </div>
+          )}
+
+          {/* Playback controls */}
+          <div className="shrink-0 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-[#141414] px-3 py-2 flex items-center gap-2">
+            <span className="text-[10px] text-gray-400 w-10 text-right font-mono shrink-0">{ph}</span>
+            <input type="range" min={1} max={total||600} value={ph}
+              onMouseDown={()=>setPlaying(false)}
+              onChange={e=>seek(Number(e.target.value))}
+              className="flex-1 accent-brand-500 cursor-pointer" style={{height:'4px'}}/>
+            <span className="text-[10px] text-gray-400 w-8 font-mono shrink-0">{total}</span>
+
+            <button onClick={()=>seek(ph-1)} className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition"><SkipBack className="w-4 h-4"/></button>
+
+            <button onClick={()=>setPlaying(p=>!p)}
+              className="p-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white transition shadow-lg shadow-brand-500/30">
+              {playing?<Pause className="w-4 h-4"/>:<Play className="w-4 h-4"/>}
+            </button>
+
+            <button onClick={()=>seek(ph+1)} className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition"><SkipForward className="w-4 h-4"/></button>
+
+            <button onClick={()=>seek(ph+10)}
+              className="px-2 py-1.5 text-[11px] font-medium rounded border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+              +10
+            </button>
+
+            <div className="flex items-center gap-0.5">
+              {SPEEDS.map(s=>(
+                <button key={s} onClick={()=>setSpeed(s)}
+                  className={`px-1.5 py-1 text-[10px] rounded font-medium transition ${speed===s?'bg-brand-500 text-white':'bg-gray-100 dark:bg-gray-800 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
+                  {s}×
+                </button>
+              ))}
+            </div>
+
+            <button onClick={()=>{setPlaying(false);setScissor(s=>!s)}}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition border ${scissor?'bg-amber-500 text-white border-amber-500':'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
+              <Scissors className="w-3.5 h-3.5"/>
+              {scissor?'Click candle…':'✂ Cut'}
+            </button>
+          </div>
         </div>
 
-        {/* Trade log */}
-        <div className="flex-1 overflow-y-auto px-3 py-2">
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Trade Log</p>
-          {closed.length===0
-            ? <p className="text-[11px] text-gray-400">No trades yet</p>
-            : closed.map(t=>(
-                <div key={t.id} className={`mb-1.5 p-2 rounded text-[11px] border ${(t.pnl??0)>=0?'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-500/10':'border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-500/10'}`}>
-                  <div className="flex justify-between">
-                    <span className={`font-bold uppercase ${t.type==='buy'?'text-emerald-700 dark:text-emerald-400':'text-red-600 dark:text-red-400'}`}>{t.type}</span>
-                    <span className={`font-bold ${(t.pnl??0)>=0?'text-emerald-700 dark:text-emerald-400':'text-red-600 dark:text-red-400'}`}>{(t.pnl??0)>=0?'+':''}${t.pnl?.toFixed(2)}</span>
+        {/* Right panel — paper trading */}
+        <div className="w-48 border-l border-gray-100 dark:border-gray-800 flex flex-col shrink-0 bg-white dark:bg-[#141414]">
+          {/* Current bar */}
+          {curBar&&(
+            <div className="px-3 py-2.5 border-b border-gray-100 dark:border-gray-800">
+              <div className="text-lg font-bold tabular-nums font-mono text-gray-900 dark:text-white">{curBar.close.toFixed(dp)}</div>
+              <div className={`text-xs font-medium ${chg>=0?'text-emerald-600':'text-red-500'}`}>{chg>=0?'+':''}{chg.toFixed(dp)} ({chgP.toFixed(2)}%)</div>
+              <div className="mt-1.5 space-y-1">
+                {[
+                  ['O',curBar.open.toFixed(dp),'text-gray-600 dark:text-gray-300'],
+                  ['H',curBar.high.toFixed(dp),'text-emerald-600'],
+                  ['L',curBar.low.toFixed(dp),'text-red-500'],
+                  ['Vol',curBar.volume.toLocaleString(),'text-sky-500'],
+                ].map(([k,v,c])=>(
+                  <div key={String(k)} className="flex justify-between text-[11px]">
+                    <span className="text-gray-400">{k}</span>
+                    <span className={`font-mono font-semibold ${c}`}>{v}</span>
                   </div>
-                  <div className="text-gray-400 font-mono">{t.entryPrice.toFixed(dp)}→{t.exitPrice?.toFixed(dp)}</div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Paper trading */}
+          <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Paper Trading</p>
+            <div className="space-y-1 text-[11px] mb-2">
+              <div className="flex justify-between"><span className="text-gray-500">Balance</span><span className={`font-bold ${bal>=10000?'text-emerald-600':'text-red-500'}`}>${bal.toLocaleString()}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">P&L</span><span className={`font-semibold ${totalPnl>=0?'text-emerald-600':'text-red-500'}`}>{totalPnl>=0?'+':''}${totalPnl.toFixed(2)}</span></div>
+              {closed.length>0&&<div className="flex justify-between"><span className="text-gray-500">Win%</span><span className="font-semibold text-gray-700 dark:text-gray-300">{Math.round(wins/closed.length*100)}%</span></div>}
+              {livePnl!==null&&<div className="flex justify-between pt-1 border-t border-gray-200 dark:border-gray-700"><span className="text-gray-500">Live</span><span className={`font-bold ${livePnl>=0?'text-emerald-500':'text-red-500'}`}>{livePnl>=0?'+':''}${livePnl.toFixed(2)}</span></div>}
+            </div>
+            <input value={lots} onChange={e=>setLots(e.target.value)} placeholder="Lots"
+              className="w-full text-xs px-2 py-1.5 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-brand-400 mb-2"/>
+            {openT?(
+              <div className="space-y-1.5">
+                <div className="p-1.5 rounded bg-gray-100 dark:bg-gray-800 text-[11px]">
+                  <span className={`font-bold uppercase ${openT.type==='buy'?'text-emerald-600':'text-red-500'}`}>{openT.type}</span>
+                  {' '}@ {openT.entryPrice.toFixed(dp)}
                 </div>
-              ))
-          }
+                <button onClick={closeTrade} className="w-full py-1.5 text-xs font-bold rounded-lg bg-red-500 hover:bg-red-600 text-white transition">Close</button>
+              </div>
+            ):(
+              <div className="grid grid-cols-2 gap-1">
+                <button onClick={()=>enterTrade('buy')} className="py-2 text-xs font-bold rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition">▲BUY</button>
+                <button onClick={()=>enterTrade('sell')} className="py-2 text-xs font-bold rounded-lg bg-red-500 hover:bg-red-600 text-white transition">▼SELL</button>
+              </div>
+            )}
+          </div>
+
+          {/* Trade log */}
+          <div className="flex-1 overflow-y-auto px-3 py-2">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Trade Log</p>
+            {closed.length===0
+              ? <p className="text-[11px] text-gray-400">No trades yet</p>
+              : closed.map(t=>(
+                  <div key={t.id} className={`mb-1.5 p-1.5 rounded text-[10px] border ${(t.pnl??0)>=0?'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-500/10':'border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-500/10'}`}>
+                    <div className="flex justify-between">
+                      <span className={`font-bold uppercase ${t.type==='buy'?'text-emerald-700 dark:text-emerald-400':'text-red-600 dark:text-red-400'}`}>{t.type}</span>
+                      <span className={`font-bold ${(t.pnl??0)>=0?'text-emerald-700 dark:text-emerald-400':'text-red-600 dark:text-red-400'}`}>{(t.pnl??0)>=0?'+':''}${t.pnl?.toFixed(2)}</span>
+                    </div>
+                    <span className="text-gray-400 font-mono">{t.entryPrice.toFixed(dp)}→{t.exitPrice?.toFixed(dp)}</span>
+                  </div>
+                ))
+            }
+          </div>
         </div>
       </div>
     </div>

@@ -96,20 +96,21 @@ function FeatureTour({ onClose }: { onClose: () => void }) {
             {step > 0 && (
               <button onClick={() => setStep(s => s - 1)}
                 className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-                Back
+                ← Back
               </button>
             )}
-            <button onClick={() => { navigate(current.path); onClose() }}
-              className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-              Open {current.title}
-            </button>
             <button onClick={() => { if (isLast) onClose(); else setStep(s => s + 1) }}
               className="flex-1 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold transition">
               {isLast ? '✓ Done' : 'Next →'}
             </button>
           </div>
+          {/* "Open section" as a small link below, not a button that navigates and closes */}
+          <button onClick={() => { navigate(current.path); onClose() }}
+            className="w-full text-center text-xs text-brand-500 hover:text-brand-600 mt-3 transition underline underline-offset-2">
+            Open {current.title} now
+          </button>
           {!isLast && (
-            <button onClick={onClose} className="w-full text-center text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 mt-4 transition">
+            <button onClick={onClose} className="w-full text-center text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 mt-1.5 transition">
               Skip tour
             </button>
           )}
