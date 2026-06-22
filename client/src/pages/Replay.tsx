@@ -3,9 +3,10 @@ import {
   createChart, CrosshairMode, LineStyle,
   type IChartApi, type ISeriesApi, type UTCTimestamp,
 } from 'lightweight-charts'
-import { Play, Pause, SkipBack, SkipForward, Search, RefreshCw, Scissors, X } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Search, RefreshCw, Scissors, X, Wifi, WifiOff } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { useSearchParams } from 'react-router-dom'
+import { fetchCandles } from '@/lib/marketData'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface OHLCV {
@@ -326,6 +327,8 @@ export default function Replay() {
   const [lots,   setLots]   = useState('0.10')
   // Current bar display
   const [curBar, setCurBar] = useState<OHLCV|null>(null)
+  const [loading, setLoading] = useState(false)
+  const [dataSource, setDataSource] = useState<'real'|'synthetic'>('synthetic')
 
   // ── All refs — no stale closures ──────────────────────────────────────────
   const mainRef  = useRef<HTMLDivElement>(null)
@@ -466,16 +469,22 @@ export default function Replay() {
   }
 
   // ── Load data ─────────────────────────────────────────────────────────────
-  function loadData(newSym: string, newTf: string) {
+  async function loadData(newSym: string, newTf: string) {
     setPlaying(false)
-    const fresh = genCandles(newSym, newTf, 600)
+    setLoading(true)
+    setCurBar(null)
+
+    const result = await fetchCandles(newSym, newTf, genCandles)
+    const fresh = result.data
+    setDataSource(result.source)
+    setLoading(false)
+
     const n = Math.floor(fresh.length * 0.5)
     dataRef.current = fresh
     phRef.current = n
     setTotal(fresh.length)
     setPH(n)
-    // render after a tick so chart is ready
-    requestAnimationFrame(()=>{
+    requestAnimationFrame(() => {
       renderBars(fresh, n)
       chartRef.current?.timeScale().fitContent()
     })
@@ -643,6 +652,16 @@ export default function Replay() {
         <div className="flex items-center gap-3 px-4 py-2 border-b border-gray-100 dark:border-gray-800 shrink-0 flex-wrap bg-white dark:bg-[#141414]">
           <span className="text-sm font-bold text-gray-900 dark:text-white">{sym}</span>
           <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded font-medium">{tf}</span>
+          {/* Data source badge */}
+          {dataSource === 'real' ? (
+            <span className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <Wifi className="w-2.5 h-2.5"/> Live data
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <WifiOff className="w-2.5 h-2.5"/> Simulated
+            </span>
+          )}
           {curBar ? (
             <>
               <span className="text-xs text-gray-500">O <span className="font-mono text-gray-700 dark:text-gray-300">{curBar.open.toFixed(dp)}</span></span>
@@ -659,7 +678,17 @@ export default function Replay() {
         </div>
 
         {/* Chart */}
-        <div ref={mainRef} className={`flex-1 min-h-0 ${scissor?'cursor-crosshair':''}`}/>
+        <div className="flex-1 min-h-0 relative">
+          <div ref={mainRef} className={`w-full h-full ${scissor?'cursor-crosshair':''}`}/>
+          {/* Loading overlay */}
+          {loading && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-[#141414]/80 backdrop-blur-sm z-10">
+              <RefreshCw className="w-8 h-8 text-brand-500 animate-spin mb-3"/>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Fetching real market data…</p>
+              <p className="text-xs text-gray-400 mt-1">{sym}</p>
+            </div>
+          )}
+        </div>
 
         {/* RSI pane */}
         {showRSI&&(

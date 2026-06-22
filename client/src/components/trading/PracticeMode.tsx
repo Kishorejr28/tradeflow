@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Search, X, Play, Pause, SkipBack, SkipForward, Scissors, RefreshCw } from 'lucide-react'
+import { Search, X, Play, Pause, SkipBack, SkipForward, Scissors, RefreshCw, Wifi, WifiOff } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { genCandles, assetDp, ASSET_GROUPS, type OHLCV, type RTrade } from '@/pages/Replay'
+import { fetchCandles } from '@/lib/marketData'
 import {
   createChart, CrosshairMode, LineStyle,
   type IChartApi, type ISeriesApi, type UTCTimestamp,
@@ -118,6 +119,8 @@ export default function PracticeMode({initialSymbol,onClose}:{initialSymbol:stri
   const [playing,setPlaying]=useState(false)
   const [speed,setSpeed]=useState(1)
   const [scissor,setScissor]=useState(false)
+  const [loading,setLoading]=useState(false)
+  const [dataSource,setDataSource]=useState<'real'|'synthetic'>('synthetic')
   const [showSMA,setShowSMA]=useState(true)
   const [showEMA,setShowEMA]=useState(true)
   const [showBB,setShowBB]=useState(false)
@@ -228,9 +231,15 @@ export default function PracticeMode({initialSymbol,onClose}:{initialSymbol:stri
     return ()=>ro.disconnect()
   }
 
-  function loadData(s:string,t:string){
+  async function loadData(s:string,t:string){
     setPlaying(false)
-    const fresh=genCandles(s,t,600),n=Math.floor(fresh.length*0.5)
+    setLoading(true)
+    setCurBar(null)
+    const result = await fetchCandles(s, t, genCandles)
+    const fresh = result.data
+    setDataSource(result.source)
+    setLoading(false)
+    const n=Math.floor(fresh.length*0.5)
     dataRef.current=fresh;phRef.current=n;setTotal(fresh.length);setPH(n)
     requestAnimationFrame(()=>{renderBars(fresh,n);cR.current?.timeScale().fitContent()})
   }
@@ -309,6 +318,10 @@ export default function PracticeMode({initialSymbol,onClose}:{initialSymbol:stri
             </button>
           ))}
         <div className="flex-1"/>
+        {dataSource==='real'
+          ? <span className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><Wifi className="w-2.5 h-2.5"/> Live data</span>
+          : <span className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400"><WifiOff className="w-2.5 h-2.5"/> Simulated</span>
+        }
         {curBar&&(
           <div className="flex items-center gap-2 text-xs">
             <span className="font-bold text-gray-800 dark:text-white">{sym}</span>
@@ -329,7 +342,15 @@ export default function PracticeMode({initialSymbol,onClose}:{initialSymbol:stri
       {/* Charts + right panel */}
       <div className="flex flex-1 min-h-0">
         <div className="flex-1 flex flex-col min-w-0">
-          <div ref={mainRef} className={`flex-1 min-h-0 ${scissor?'cursor-crosshair':''}`}/>
+          <div className="flex-1 min-h-0 relative">
+            <div ref={mainRef} className={`w-full h-full ${scissor?'cursor-crosshair':''}`}/>
+            {loading&&(
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-[#141414]/80 backdrop-blur-sm z-10">
+                <RefreshCw className="w-6 h-6 text-brand-500 animate-spin mb-2"/>
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-300">Fetching real data…</p>
+              </div>
+            )}
+          </div>
           {showRSI&&<div className="shrink-0 border-t border-gray-100 dark:border-gray-800 relative" style={{height:80}}><span className="absolute top-1 left-2 text-[9px] font-semibold text-amber-500 z-10 pointer-events-none">RSI</span><div ref={rsiRef} className="w-full h-full"/></div>}
           {showMACD&&<div className="shrink-0 border-t border-gray-100 dark:border-gray-800 relative" style={{height:80}}><span className="absolute top-1 left-2 text-[9px] font-semibold text-cyan-500 z-10 pointer-events-none">MACD</span><div ref={macdRef} className="w-full h-full"/></div>}
           {/* Playback */}
