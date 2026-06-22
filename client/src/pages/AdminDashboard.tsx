@@ -200,6 +200,32 @@ export default function AdminDashboard() {
 
   useEffect(() => { refresh() }, [refresh])
 
+  // ── Dummy test users (local, no Supabase needed) ───────────────────────────
+  const DUMMY_USERS: UserRow[] = [
+    {
+      user_id: 'dummy-trader-001',
+      plan: (localPlans['dummy-trader-001'] ?? 'free') as Plan,
+      plan_started_at: '2026-06-01T00:00:00Z',
+      created_at: '2026-06-01T00:00:00Z',
+      email: 'user_trader@tradeflow.app',
+      notes: 'Test account — Trader (free) plan',
+    },
+    {
+      user_id: 'dummy-pro-001',
+      plan: (localPlans['dummy-pro-001'] ?? 'pro') as Plan,
+      plan_started_at: '2026-06-01T00:00:00Z',
+      created_at: '2026-06-01T00:00:00Z',
+      email: 'user_pro@tradeflow.app',
+      notes: 'Test account — Edge Pro plan',
+    },
+  ]
+
+  // Merge Supabase users with dummy users (dummy ones always visible)
+  const allUsers = [
+    ...DUMMY_USERS,
+    ...users.filter(u => !DUMMY_USERS.find(d => d.user_id === u.user_id)),
+  ]
+
   const changePlan = async (userId: string, plan: Plan) => {
     setSavingPlan(userId)
     // Save locally always (works without Supabase)
@@ -217,8 +243,10 @@ export default function AdminDashboard() {
     setWaitlist(p => p.map(w => w.id === id ? { ...w, converted: true } : w))
   }
 
-  const filteredUsers = users.filter(u =>
-    !search || u.user_id.toLowerCase().includes(search.toLowerCase())
+  const filteredUsers = allUsers.filter(u =>
+    !search ||
+    u.user_id.toLowerCase().includes(search.toLowerCase()) ||
+    (u.email ?? '').toLowerCase().includes(search.toLowerCase())
   )
   const filteredWaitlist = waitlist.filter(w =>
     !search || w.email.toLowerCase().includes(search.toLowerCase()) ||
@@ -372,9 +400,14 @@ export default function AdminDashboard() {
                     <>
                       <tr key={u.user_id} className="hover:bg-gray-50 dark:hover:bg-white/3 transition">
                         <td className="px-4 py-3">
-                          <span className="font-mono text-xs text-gray-600 dark:text-gray-400">
-                            {u.user_id.slice(0,8)}…
-                          </span>
+                          <div>
+                            <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                              {u.email ?? `${u.user_id.slice(0,8)}…`}
+                            </p>
+                            <p className="font-mono text-[10px] text-gray-400 mt-0.5">
+                              {u.notes ?? u.user_id.slice(0,12)+'…'}
+                            </p>
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold ${PLAN_BADGE[u.plan]}`}>

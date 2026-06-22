@@ -352,34 +352,37 @@ function ProFreeBanner() {
   const [dismissed, setDismissed] = useState(() => localStorage.getItem('tf-pro-banner-dismissed') === '1')
   if (dismissed) return null
 
-  const daysLeft = Math.max(0, Math.ceil((PRO_FREE_UNTIL.getTime() - Date.now()) / 86400000))
+  const now = new Date()
+  const daysLeft = Math.max(0, Math.ceil((PRO_FREE_UNTIL.getTime() - now.getTime()) / 86400000))
+  // daysLeft decreases by 1 each real calendar day — it is live and accurate
 
   return (
-    <div className="mt-6 rounded-2xl bg-gradient-to-r from-brand-500 via-purple-600 to-brand-600 p-px shadow-xl shadow-brand-500/20">
+    <div className="mt-6 rounded-2xl bg-gradient-to-r from-yellow-400 via-amber-500 to-brand-600 p-px shadow-xl shadow-amber-500/20">
       <div className="rounded-2xl bg-white dark:bg-[#0f0f0f] px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center shrink-0 shadow-lg shadow-brand-500/30">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center shrink-0 shadow-lg shadow-amber-500/30">
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <p className="font-bold text-gray-900 dark:text-white text-sm">All Pro features are FREE right now</p>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-50 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 font-bold border border-brand-200 dark:border-brand-700">
+              <p className="font-bold text-gray-900 dark:text-white text-sm">🥇 All Edge Pro features are FREE right now</p>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 font-bold border border-amber-200 dark:border-amber-700">
                 EARLY ACCESS
               </span>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1">
               <Clock className="w-3 h-3" />
               {daysLeft > 0
-                ? `${daysLeft} days remaining — AI coach, unlimited journal, prop simulator and more. No card needed.`
-                : 'Early access period has ended. Upgrade to keep Pro features.'}
+                ? `${daysLeft} days left in early access — after that, Edge Pro is $12/mo. No card needed now.`
+                : 'Early access has ended. Upgrade to Edge Pro to keep all features.'}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <a href="#pricing" onClick={() => { localStorage.setItem('tf-pro-banner-dismissed','1'); setDismissed(true) }}
-            className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg transition shadow-sm">
-            Learn about Pro →
+          <a href="/#pricing"
+            onClick={() => { localStorage.setItem('tf-pro-banner-dismissed','1'); setDismissed(true) }}
+            className="px-4 py-2 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-white text-xs font-semibold rounded-lg transition shadow-sm">
+            View pricing →
           </a>
           <button onClick={() => { localStorage.setItem('tf-pro-banner-dismissed','1'); setDismissed(true) }}
             className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition">
