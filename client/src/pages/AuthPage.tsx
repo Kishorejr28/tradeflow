@@ -69,10 +69,14 @@ export default function AuthPage() {
 
   // Local credentials — all bypass Supabase, work offline
   const LOCAL_CREDS: Record<string, { password: string; name: string; plan: 'free'|'pro'|'admin'; id: string; dest: string }> = {
-    'kishore':                   { password:'TradeFlow@2026', name:'Kishore JR',  plan:'admin', id:'admin-local',       dest:'/admin' },
-    'kishorejr28@gmail.com':     { password:'TradeFlow@2026', name:'Kishore JR',  plan:'admin', id:'admin-local',       dest:'/admin' },
-    'user_trader@tradeflow.app': { password:'Trader@123',     name:'Trader User', plan:'free',  id:'dummy-trader-001',  dest:'/app/dashboard' },
-    'user_pro@tradeflow.app':    { password:'ProUser@123',    name:'Pro User',    plan:'pro',   id:'dummy-pro-001',     dest:'/app/dashboard' },
+    'kishore':                    { password:'TradeFlow@2026', name:'Kishore JR',  plan:'admin', id:'admin-local',      dest:'/admin' },
+    'kishorejr28@gmail.com':      { password:'TradeFlow@2026', name:'Kishore JR',  plan:'admin', id:'admin-local',      dest:'/admin' },
+    'user_trader@tradeflow.app':  { password:'Trader@123',     name:'Trader User', plan:'free',  id:'dummy-trader-001', dest:'/app/dashboard' },
+    'trader_test@tradeflow.app':  { password:'Trader@123',     name:'Trader User', plan:'free',  id:'dummy-trader-001', dest:'/app/dashboard' },
+    'user_pro@tradeflow.app':     { password:'ProUser@123',    name:'Pro User',    plan:'pro',   id:'dummy-pro-001',    dest:'/app/dashboard' },
+    'pro_test@tradeflow.app':     { password:'ProUser@123',    name:'Pro User',    plan:'pro',   id:'dummy-pro-001',    dest:'/app/dashboard' },
+    'trader':                     { password:'Trader@123',     name:'Trader User', plan:'free',  id:'dummy-trader-001', dest:'/app/dashboard' },
+    'pro':                        { password:'ProUser@123',    name:'Pro User',    plan:'pro',   id:'dummy-pro-001',    dest:'/app/dashboard' },
   }
 
   const checkLocalCredentials = (emailOrUser: string, pw: string) => {
@@ -276,6 +280,37 @@ export default function AuthPage() {
             className="w-full py-3 px-4 border-2 border-dashed border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 text-sm font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-900 hover:border-brand-300 dark:hover:border-brand-700 hover:text-brand-600 dark:hover:text-brand-400 transition">
             Continue as Demo User
           </button>
+
+          {/* Quick login shortcuts — always visible */}
+          <details className="mt-3">
+            <summary className="text-[11px] text-gray-400 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition select-none">
+              🔑 Quick login shortcuts
+            </summary>
+            <div className="mt-2 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden text-[11px]">
+              {[
+                { label:'🪙 Trader account', email:'trader',  pw:'Trader@123',     note:'Free plan' },
+                { label:'🥇 Pro account',    email:'pro',     pw:'ProUser@123',    note:'Edge Pro plan' },
+                { label:'⚡ Admin',          email:'kishore', pw:'TradeFlow@2026', note:'Admin panel' },
+              ].map((row, i) => (
+                <button key={i} type="button"
+                  onClick={() => {
+                    const cred = checkLocalCredentials(row.email, row.pw)
+                    if (cred) {
+                      setUser({ id: cred.id, email: row.email, full_name: cred.name, timezone: 'UTC', account_currency: 'USD', created_at: new Date().toISOString() })
+                      setUserPlan(cred.plan)
+                      navigate(cred.dest)
+                    }
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition border-b last:border-0 border-gray-100 dark:border-gray-700 text-left">
+                  <div>
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">{row.label}</span>
+                    <span className="text-gray-400 ml-2">pw: <span className="font-mono">{row.pw}</span></span>
+                  </div>
+                  <span className="text-gray-400 shrink-0">{row.note} →</span>
+                </button>
+              ))}
+            </div>
+          </details>
 
           {!hasSupabaseConfig && (
             <p className="text-center text-[11px] text-amber-500 mt-3">
