@@ -14,6 +14,7 @@ import Notebook from '@/pages/Notebook'
 import News from '@/pages/News'
 import Sanctuary from '@/pages/Sanctuary'
 import Settings from '@/pages/Settings'
+import AdminDashboard from '@/pages/AdminDashboard'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const user = useAppStore((s) => s.user)
@@ -107,6 +108,8 @@ export default function App() {
           <Route path="sanctuary" element={<Sanctuary />} />
           <Route path="settings" element={<Settings />} />
         </Route>
+        {/* Admin route — only accessible by admin email, guarded inside the component */}
+        <Route path="/admin" element={<AdminDashboard />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
