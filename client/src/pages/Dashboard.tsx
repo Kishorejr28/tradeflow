@@ -7,7 +7,7 @@ import {
   TrendingUp, TrendingDown, Target, Activity,
   ChevronLeft, ChevronRight, ArrowUpRight, PlusCircle, Plus,
   X, BookOpen, FileText, BarChart2, Newspaper, Leaf, NotebookPen, History,
-  Layout, Sparkles, Clock,
+  Layout, Sparkles, Clock, Pencil, Lock,
 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useIsDemo } from '@/hooks/useIsDemo'
@@ -170,7 +170,20 @@ function EmptyEquity() {
 }
 
 // ── Multi-Chart Analysis Widget ───────────────────────────────────────────────
-const CHART_SYMBOLS = ['EURUSD','GBPUSD','XAUUSD','BTCUSD','AAPL','NVDA','SPX500','USDJPY']
+const CHART_SYMBOLS = ['EURUSD','GBPUSD','XAUUSD','BTCUSD','AAPL','NVDA','SPX500','USDJPY','GBPJPY','NZDUSD','ETHUSD','MSFT']
+
+const LS_KEY = 'tf-multicharts-symbols'
+
+function loadSavedSymbols(fallback: string[]): string[] {
+  try {
+    const raw = localStorage.getItem(LS_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+    }
+  } catch { /* ignore */ }
+  return fallback
+}
 
 function TVMiniChart({ symbol, theme }: { symbol: string; theme: string }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -197,15 +210,50 @@ function TVMiniChart({ symbol, theme }: { symbol: string; theme: string }) {
 }
 
 function MultiChartWidget() {
-  const { theme } = useAppStore()
+  const { theme, userPlan } = useAppStore()
   const isDark = theme === 'dark'
-  const [layout, setLayout] = useState<2|4>(4)
-  const [symbols, setSymbols] = useState(['EURUSD','XAUUSD','BTCUSD','AAPL'])
+  const isPro = userPlan === 'pro' || userPlan === 'admin'
+  const maxCharts = isPro ? 4 : 2
+
+  const defaultSymbols = ['EURUSD', 'XAUUSD', 'BTCUSD', 'AAPL']
+
+  const [symbols, setSymbols] = useState<string[]>(() => {
+    const saved = loadSavedSymbols(defaultSymbols)
+    // Clamp to maxCharts on load; we'll handle upgrades dynamically
+    return saved.slice(0, 4)
+  })
+  const [activeCount, setActiveCount] = useState<2|4>(() => {
+    const saved = loadSavedSymbols(defaultSymbols)
+    return (isPro && saved.length === 4) ? 4 : 2
+  })
   const [editIdx, setEditIdx] = useState<number|null>(null)
   const [editVal, setEditVal] = useState('')
+  const [upgradeNudge, setUpgradeNudge] = useState(false)
+
+  const layout = Math.min(activeCount, maxCharts) as 2|4
+  const shown = symbols.slice(0, layout)
+
+  // Persist symbol choices whenever they change
+  useEffect(() => {
+    localStorage.setItem(LS_KEY, JSON.stringify(symbols))
+  }, [symbols])
+
+  const updateSymbol = (idx: number, sym: string) => {
+    setSymbols(p => { const n = [...p]; n[idx] = sym.toUpperCase(); return n })
+    setEditIdx(null)
+  }
+
+  const handleLayoutChange = (n: 2|4) => {
+    if (n === 4 && !isPro) {
+      setUpgradeNudge(true)
+      setTimeout(() => setUpgradeNudge(false), 4000)
+      return
+    }
+    setActiveCount(n)
+    setUpgradeNudge(false)
+  }
 
   const gridCls = layout === 2 ? 'grid-cols-2 grid-rows-1' : 'grid-cols-2 grid-rows-2'
-  const shown = symbols.slice(0, layout)
 
   return (
     <div className="mt-6 card overflow-hidden">
@@ -218,43 +266,80 @@ function MultiChartWidget() {
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-gray-400">Layout:</span>
           {([2, 4] as const).map(n => (
-            <button key={n} onClick={() => setLayout(n)}
-              className={`px-2.5 py-1 text-[11px] rounded font-medium transition ${layout === n ? 'bg-brand-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
+            <button key={n} onClick={() => handleLayoutChange(n)}
+              className={`flex items-center gap-1 px-2.5 py-1 text-[11px] rounded font-medium transition ${layout === n ? 'bg-brand-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'}`}>
+              {n === 4 && !isPro && <Lock className="w-2.5 h-2.5"/>}
               {n === 2 ? '2 charts' : '4 charts'}
             </button>
           ))}
         </div>
       </div>
+
+      {/* Upgrade nudge */}
+      {upgradeNudge && (
+        <div className="px-4 py-2.5 bg-amber-50 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/30 flex items-center gap-2">
+          <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0"/>
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            Upgrade to <strong>Edge Pro</strong> to unlock 4 simultaneous charts.
+          </p>
+          <a href="/#pricing" className="ml-auto text-[11px] font-semibold text-amber-600 dark:text-amber-400 hover:underline shrink-0">Upgrade →</a>
+        </div>
+      )}
+
       <div className={`grid gap-px bg-gray-100 dark:bg-gray-800 ${gridCls}`} style={{ height: layout === 2 ? 280 : 480 }}>
         {shown.map((sym, i) => (
-          <div key={`${sym}-${i}`} className="relative bg-white dark:bg-[#141414] group">
+          <div key={`${sym}-${i}`} className="relative bg-white dark:bg-[#141414]">
             <TVMiniChart symbol={sym} theme={isDark ? 'dark' : 'light'} />
-            {/* Symbol edit overlay */}
+
+            {/* Edit overlay */}
             {editIdx === i ? (
-              <div className="absolute top-1 left-1 z-20 flex items-center gap-1">
-                <input autoFocus value={editVal} onChange={e => setEditVal(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { setSymbols(p => { const n=[...p]; n[i]=editVal.toUpperCase(); return n }); setEditIdx(null) } if (e.key === 'Escape') setEditIdx(null) }}
-                  className="text-[10px] px-2 py-1 rounded border border-brand-400 bg-white dark:bg-gray-800 text-gray-900 dark:text-white w-24 focus:outline-none"
+              <div className="absolute top-1 left-1 z-20 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-2 min-w-[160px]">
+                <input autoFocus value={editVal}
+                  onChange={e => setEditVal(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') { updateSymbol(i, editVal) }
+                    if (e.key === 'Escape') { setEditIdx(null) }
+                  }}
+                  placeholder="e.g. GBPUSD"
+                  className="text-[11px] px-2 py-1.5 rounded border border-brand-400 bg-white dark:bg-gray-800 text-gray-900 dark:text-white w-full focus:outline-none mb-1.5"
                 />
-                <button onClick={() => { setSymbols(p => { const n=[...p]; n[i]=editVal.toUpperCase(); return n }); setEditIdx(null) }} className="text-[10px] px-1.5 py-1 bg-brand-500 text-white rounded">✓</button>
+                <div className="flex flex-wrap gap-1 mb-1.5">
+                  {CHART_SYMBOLS.map(s => (
+                    <button key={s} onClick={() => updateSymbol(i, s)}
+                      className="text-[10px] px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-brand-400 hover:text-brand-600 dark:hover:text-brand-400 transition">
+                      {s}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-1">
+                  <button onClick={() => updateSymbol(i, editVal)}
+                    className="flex-1 text-[10px] px-2 py-1 bg-brand-500 text-white rounded font-medium">
+                    Apply
+                  </button>
+                  <button onClick={() => { setEditIdx(null) }}
+                    className="text-[10px] px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded">
+                    Cancel
+                  </button>
+                </div>
               </div>
             ) : (
+              /* Always-visible pencil edit button */
               <button onClick={() => { setEditVal(sym); setEditIdx(i) }}
-                className="absolute top-1 right-1 z-20 opacity-0 group-hover:opacity-100 transition px-1.5 py-0.5 bg-black/50 text-white text-[10px] rounded">
-                change
+                className="absolute top-1 right-1 z-20 flex items-center gap-0.5 px-1.5 py-1 bg-black/40 hover:bg-black/60 text-white text-[10px] rounded transition"
+                title={`Edit chart ${i + 1}`}>
+                <Pencil className="w-2.5 h-2.5"/>
+                <span>{sym}</span>
               </button>
             )}
           </div>
         ))}
       </div>
+
       <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-800 flex items-center gap-2 flex-wrap">
-        <span className="text-[10px] text-gray-400">Quick switch:</span>
-        {CHART_SYMBOLS.map(s => (
-          <button key={s} onClick={() => { if (editIdx !== null) { setSymbols(p => { const n=[...p]; n[editIdx]=s; return n }); setEditIdx(null) } else { setSymbols(p => { const n=[...p]; n[0]=s; return n }) } }}
-            className="text-[10px] px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-brand-400 hover:text-brand-600 dark:hover:text-brand-400 transition">
-            {s}
-          </button>
-        ))}
+        <span className="text-[10px] text-gray-400">
+          {isPro ? 'Up to 4 charts · symbols saved' : `Free: 2 charts · `}
+          {!isPro && <a href="/#pricing" className="text-brand-500 hover:underline">Upgrade for 4</a>}
+        </span>
       </div>
     </div>
   )

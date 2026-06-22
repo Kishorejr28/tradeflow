@@ -14,8 +14,8 @@ export const PLAN_NAMES: Record<Plan, string> = {
 }
 
 export const PLAN_COLORS: Record<Plan, string> = {
-  free:  'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
-  pro:   'bg-gradient-to-r from-brand-500 to-purple-600 text-white',
+  free:  'bg-gradient-to-r from-gray-400 to-gray-500 text-white',
+  pro:   'bg-gradient-to-r from-yellow-400 to-amber-500 text-white',
   admin: 'bg-gradient-to-r from-amber-400 to-amber-600 text-white',
 }
 

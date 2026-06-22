@@ -102,8 +102,8 @@ export default function Sidebar() {
             {/* Avatar */}
             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${
               isAdmin ? 'bg-gradient-to-br from-amber-400 to-amber-600' :
-              isPro   ? 'bg-gradient-to-br from-brand-500 to-purple-600' :
-                        'bg-brand-500'
+              isPro   ? 'bg-gradient-to-br from-yellow-400 to-amber-500' :
+                        'bg-gradient-to-br from-gray-400 to-gray-600'
             }`}>
               {user?.full_name?.[0] || user?.email?.[0]?.toUpperCase() || 'T'}
             </div>

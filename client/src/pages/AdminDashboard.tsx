@@ -523,23 +523,50 @@ export default function AdminDashboard() {
                   <div key={plan} className={`rounded-xl border p-4 ${plan === 'pro' ? 'border-brand-300 dark:border-brand-700 bg-brand-50/50 dark:bg-brand-500/5' : 'border-gray-200 dark:border-gray-700'}`}>
                     <div className="flex items-center gap-2 mb-3">
                       {PLAN_ICON[plan]}
-                      <span className="font-semibold text-sm capitalize text-gray-800 dark:text-gray-200">{plan} Plan</span>
+                      <span className="font-semibold text-sm capitalize text-gray-800 dark:text-gray-200">{plan === 'free' ? 'Trader (Free)' : plan === 'pro' ? 'Edge Pro' : 'Admin'} Plan</span>
                     </div>
                     <div className="space-y-1.5">
-                      {features.filter(f => f.default_plan === plan || plan === 'admin').map(f => (
-                        <div key={f.key} className="flex items-center gap-1.5">
-                          <Check className={`w-3 h-3 shrink-0 ${plan === 'pro' || plan === 'admin' ? 'text-emerald-500' : f.default_plan === 'free' ? 'text-emerald-500' : 'text-gray-300 dark:text-gray-600'}`}/>
-                          <span className="text-[11px] text-gray-600 dark:text-gray-400">{f.label}</span>
-                        </div>
-                      ))}
+                      {features.map(f => {
+                        const featurePlan: string = f.default_plan
+                        const planStr: string = plan
+                        const included = planStr === 'admin' || featurePlan === 'free' || (planStr === 'pro' && (featurePlan === 'pro' || featurePlan === 'free'))
+                        return (
+                          <div key={f.key} className="flex items-center gap-1.5">
+                            {included
+                              ? <Check className="w-3 h-3 shrink-0 text-emerald-500"/>
+                              : <X className="w-3 h-3 shrink-0 text-gray-300 dark:text-gray-600"/>}
+                            <span className={`text-[11px] ${included ? 'text-gray-600 dark:text-gray-400' : 'text-gray-400 dark:text-gray-600 line-through'}`}>{f.label}</span>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
+            {/* ── Standalone Test Panel ── */}
+            <div className="card p-6">
+              <div className="flex items-center gap-2 mb-1">
+                <ToggleRight className="w-4 h-4 text-brand-500"/>
+                <h3 className="font-semibold text-gray-900 dark:text-white">Test Feature Flags (Preview Mode)</h3>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                Toggle features for the <strong>preview-user</strong> slot — no Supabase users needed. Useful for testing how features appear to different plan types.
+              </p>
+              <div className="border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-gray-800/30 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-[#1e1e1e]">
+                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Preview User — feature overrides</span>
+                  <span className="text-[10px] text-gray-400 ml-auto">Green = force ON · Red = force OFF · ↺ = plan default</span>
+                </div>
+                <div className="px-2 max-h-96 overflow-y-auto">
+                  <UserFlagsPanel userId="__preview__" features={features}/>
+                </div>
+              </div>
+            </div>
+
             <div className="card p-5 border-brand-200 dark:border-brand-700/50 bg-brand-50/30 dark:bg-brand-500/5">
-              <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm">How to use feature flags</h4>
+              <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2 text-sm">How to use feature flags per user</h4>
               <ol className="text-xs text-gray-500 dark:text-gray-400 space-y-1.5 list-decimal list-inside">
                 <li>Go to the <strong>Users</strong> tab and find the user</li>
                 <li>Click "Override features" to expand their feature panel</li>

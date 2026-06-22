@@ -80,7 +80,7 @@ export default function AuthPage() {
     setError('')
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/app/dashboard` },
+      options: { redirectTo: `${window.location.origin}/auth` },
     })
     if (error) { setError(error.message); setGoogleLoading(false) }
   }
@@ -103,11 +103,21 @@ export default function AuthPage() {
 
     try {
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({
+        const { error: signUpError } = await supabase.auth.signUp({
           email, password, options: { data: { full_name: name } },
         })
-        if (error) setError(error.message)
-        else setMessage('Check your email to confirm your account.')
+        if (signUpError) {
+          setError(signUpError.message)
+        } else {
+          // Try to sign in immediately — works when email confirmation is disabled
+          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+          if (!signInError) {
+            navigate('/app/dashboard')
+          } else {
+            // Email confirmation is required — show a helpful message
+            setMessage(`We sent a confirmation to ${email}. Check your spam folder too. Once confirmed, return here to sign in.`)
+          }
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) setError(error.message)

@@ -82,8 +82,9 @@ function AuthHandler() {
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
         if (session?.user) {
-          // Restore session on refresh — no navigation, stay on current page
-          applySession(session.user, undefined)
+          // Restore session on refresh — navigate to dashboard if on auth/root page
+          const isAuthPage = location.pathname === '/' || location.pathname === '/auth'
+          applySession(session.user, isAuthPage ? 'SIGNED_IN' : undefined)
         }
       })
       .catch(() => {})
