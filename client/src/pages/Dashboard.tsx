@@ -349,12 +349,14 @@ function MultiChartWidget() {
 const PRO_FREE_UNTIL = new Date('2026-09-30') // update when ready to charge
 
 function ProFreeBanner() {
+  const { userPlan } = useAppStore()
   const [dismissed, setDismissed] = useState(() => localStorage.getItem('tf-pro-banner-dismissed') === '1')
-  if (dismissed) return null
+
+  // Don't show to pro or admin users — they already have everything
+  if (dismissed || userPlan === 'pro' || userPlan === 'admin') return null
 
   const now = new Date()
   const daysLeft = Math.max(0, Math.ceil((PRO_FREE_UNTIL.getTime() - now.getTime()) / 86400000))
-  // daysLeft decreases by 1 each real calendar day — it is live and accurate
 
   return (
     <div className="mt-6 rounded-2xl bg-gradient-to-r from-yellow-400 via-amber-500 to-brand-600 p-px shadow-xl shadow-amber-500/20">

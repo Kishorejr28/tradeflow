@@ -104,10 +104,26 @@ const BASE_PRICE: Record<string, number> = {
   XAUUSD:3324,XAGUSD:36.4,USOIL:68.2,UKOIL:72.8,NATGAS:3.21,
   COPPER:4.85,WHEAT:548,CORN:428,SOYBEAN:1095,SUGAR:19.8,
   COFFEE:312,COCOA:7820,PLATINUM:1024,PALLADIUM:985,ALUMINUM:2.52,NICKEL:15.4,
+  // ETFs
   SPY:528,QQQ:462,IWM:208,DIA:392,VTI:248,VOO:524,GLD:228,SLV:28.4,
   TLT:88.4,HYG:78.2,EEM:42.8,FXI:28.4,EWZ:32.8,GDX:32.4,
   XLF:42.8,XLE:92.4,XLK:212.8,XLV:148.2,XLI:128.4,ARKK:52.8,
   SQQQ:12.4,TQQQ:52.8,
+  // Indian stocks (NSE) — in INR
+  'RELIANCE.NS':2980,'TCS.NS':3450,'INFY.NS':1580,'HDFCBANK.NS':1720,
+  'ICICIBANK.NS':1180,'WIPRO.NS':512,'SBIN.NS':815,'BAJFINANCE.NS':7200,
+  // German stocks (XETRA) — in EUR, accurate June 2026
+  'SAP.DE':154.8,'SIE.DE':195.4,'VOW3.DE':112.2,'BMW.DE':85.4,
+  'BAYN.DE':28.2,'BAS.DE':45.8,'DBK.DE':22.4,'ALV.DE':295.6,
+  // UK stocks (LSE) — in GBP pence
+  'SHEL.L':2524,'HSBA.L':822,'BP.L':418,'AZN.L':11840,
+  'VOD.L':68,'LLOY.L':58,'BARC.L':268,
+  // Japanese stocks (TSE) — in JPY
+  '7203.T':2856,'6758.T':2580,'9984.T':8240,'7974.T':7820,
+  // Hong Kong (HKEx) — in HKD
+  '0700.HK':385,'9988.HK':82,
+  // Australia (ASX) — in AUD
+  'BHP.AX':44.2,'CBA.AX':138.4,'ANZ.AX':28.6,
   ES:5312,NQ:18620,YM:39480,RTY:2082,GC:3324,SI:28.4,
   CL:75.2,NG:2.41,ZB:108.4,ZN:108.2,ZC:443,ZS:1182,
   ZW:562,HG:4.52,PL:982,PA:1024,
@@ -435,8 +451,8 @@ export default function Replay() {
   const [showVol,  setShowVol]  = useState(true)
   const [showRSI,  setShowRSI]  = useState(false)
   const [showMACD, setShowMACD] = useState(false)
-  // Paper trading
-  const [bal,    setBal]    = useState(10000)
+  // Paper trading — $100,000 starting balance (matches Trading page)
+  const [bal,    setBal]    = useState(100000)
   const [openT,  setOpenT]  = useState<RTrade|null>(null)
   const [closed, setClosed] = useState<RTrade[]>([])
   const [lots,   setLots]   = useState('0.10')

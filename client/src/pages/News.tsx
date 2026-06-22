@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useAppStore } from '@/store/appStore'
 import {
   ChevronLeft, ChevronRight, RefreshCw, ExternalLink,
-  Info, Clock, TrendingUp, Globe,
+  Info, Clock, TrendingUp, Globe, Search,
 } from 'lucide-react'
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -18,22 +17,23 @@ const IMPACT_COLOR: Record<Impact,string> = { high:'bg-red-500',medium:'bg-amber
 interface CalEvent { id:string;time:string;currency:string;impact:Impact;event:string;actual?:string;forecast?:string;previous?:string;_date:string }
 interface Article { title:string;url:string;source:string;pubDate:string;description:string;thumbnail?:string }
 
-// ── These feeds work reliably with rss2json free tier ─────────────────────────
+// ── News RSS feeds ────────────────────────────────────────────────────────────
+// Organised by category so user can filter by type
 const RSS_SOURCES = [
-  { label:'CNBC Business',   url:'https://www.cnbc.com/id/10001147/device/rss/rss.html' },
-  { label:'BBC Business',    url:'https://feeds.bbci.co.uk/news/business/rss.xml' },
-  { label:'CNBC Markets',    url:'https://www.cnbc.com/id/20910258/device/rss/rss.html' },
-  { label:'CNBC Finance',    url:'https://www.cnbc.com/id/10000664/device/rss/rss.html' },
-  { label:'CNBC World',      url:'https://www.cnbc.com/id/100727362/device/rss/rss.html' },
-  { label:'The Guardian',    url:'https://www.theguardian.com/business/rss' },
+  { label:'CNBC Markets',    category:'General',  url:'https://www.cnbc.com/id/20910258/device/rss/rss.html' },
+  { label:'CNBC Business',   category:'General',  url:'https://www.cnbc.com/id/10001147/device/rss/rss.html' },
+  { label:'BBC Business',    category:'General',  url:'https://feeds.bbci.co.uk/news/business/rss.xml' },
+  { label:'The Guardian',    category:'General',  url:'https://www.theguardian.com/business/rss' },
+  { label:'CNBC Finance',    category:'Stocks',   url:'https://www.cnbc.com/id/10000664/device/rss/rss.html' },
+  { label:'CNBC World',      category:'Forex',    url:'https://www.cnbc.com/id/100727362/device/rss/rss.html' },
+  { label:'CNBC Technology', category:'Stocks',   url:'https://www.cnbc.com/id/19854910/device/rss/rss.html' },
 ]
 
-// rss2json works without API key for these — no count param needed
 async function fetchNews(feedUrl: string): Promise<Article[]> {
   const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`
   try {
     const res = await fetch(url, { cache: 'no-store' })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) throw new Error()
     const data = await res.json()
     if (data.status !== 'ok') throw new Error(data.message)
     return (data.items as Record<string,any>[]).map(item => ({
@@ -47,14 +47,14 @@ async function fetchNews(feedUrl: string): Promise<Article[]> {
   } catch { return [] }
 }
 
-// ── Forex Factory calendar ─────────────────────────────────────────────────────
+// ── Forex Factory calendar ────────────────────────────────────────────────────
 let ffCache: { events: CalEvent[]; ts: number } | null = null
 async function fetchFF(): Promise<CalEvent[]> {
   if (ffCache && Date.now() - ffCache.ts < 15 * 60 * 1000) return ffCache.events
   try {
     const res = await fetch('https://nfs.faireconomy.media/ff_calendar_thisweek.json', { cache: 'no-store' })
     if (!res.ok) throw new Error()
-    const raw = await res.json() as Array<{ title:string;country:string;date:string;time:string;impact:string;forecast:string;previous:string;actual:string }>
+    const raw = await res.json() as Array<{title:string;country:string;date:string;time:string;impact:string;forecast:string;previous:string;actual:string}>
     const events: CalEvent[] = raw.map((e, i) => {
       const m = e.date?.match(/(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/)
       return {
@@ -70,6 +70,7 @@ async function fetchFF(): Promise<CalEvent[]> {
   } catch { return [] }
 }
 
+// ── Mini Calendar ─────────────────────────────────────────────────────────────
 function MiniCalendar({ selected, onSelect, hasEvents }: { selected: Date; onSelect: (d:Date)=>void; hasEvents: Set<string> }) {
   const [month, setMonth] = useState(new Date(selected))
   const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) })
@@ -105,7 +106,7 @@ function MiniCalendar({ selected, onSelect, hasEvents }: { selected: Date; onSel
 
 export default function News() {
   const [selectedDate, setSelectedDate] = useState(new Date())
-  const [selectedCurrencies, setSelectedCurrencies] = useState(['USD','EUR','GBP','JPY','AUD','CAD'])
+  const [selectedCurrencies, setSelectedCurrencies] = useState([...CURRENCIES]) // all selected by default
   const [importance, setImportance] = useState<Impact[]>(['high','medium','low'])
   const [tab, setTab] = useState<'news'|'calendar'>('news')
   const [allEvents, setAllEvents] = useState<CalEvent[]>([])
@@ -113,6 +114,8 @@ export default function News() {
   const [articles, setArticles] = useState<Article[]>([])
   const [newsLoading, setNewsLoading] = useState(false)
   const [sourceIdx, setSourceIdx] = useState(0)
+  const [sourceCategory, setSourceCategory] = useState<string>('All')
+  const [newsSearch, setNewsSearch] = useState('')
   const [showInfo, setShowInfo] = useState(false)
 
   const loadCalendar = async () => { setCalLoading(true); setAllEvents(await fetchFF()); setCalLoading(false) }
@@ -136,12 +139,20 @@ export default function News() {
   const toggleCurrency = (c: string) => setSelectedCurrencies(p => p.includes(c) ? p.filter(x=>x!==c) : [...p,c])
   const toggleImpact   = (i: Impact) => setImportance(p => p.includes(i) ? p.filter(x=>x!==i) : [...p,i])
 
+  const categories = ['All', ...Array.from(new Set(RSS_SOURCES.map(s => s.category)))]
+  const visibleSources = sourceCategory === 'All' ? RSS_SOURCES : RSS_SOURCES.filter(s => s.category === sourceCategory)
+
+  const filteredArticles = newsSearch
+    ? articles.filter(a => a.title.toLowerCase().includes(newsSearch.toLowerCase()) || a.description.toLowerCase().includes(newsSearch.toLowerCase()))
+    : articles
+
   return (
     <div className="flex h-full overflow-hidden">
       {/* Left */}
       <div className="w-56 border-r border-gray-100 dark:border-gray-800 flex flex-col shrink-0 bg-white dark:bg-[#141414] overflow-y-auto">
         <MiniCalendar selected={selectedDate} onSelect={setSelectedDate} hasEvents={eventDates}/>
         <div className="p-3 space-y-4">
+          {/* Impact filter — used for calendar tab */}
           <div>
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Impact</p>
             <div className="space-y-1.5">
@@ -153,6 +164,8 @@ export default function News() {
               ))}
             </div>
           </div>
+
+          {/* Currency filter */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Currencies</p>
@@ -169,6 +182,7 @@ export default function News() {
               ))}
             </div>
           </div>
+
           <button onClick={() => setShowInfo(p=>!p)} className="flex items-start gap-1.5 text-left w-full group">
             <Info className="w-3 h-3 text-gray-400 group-hover:text-brand-500 mt-0.5 shrink-0 transition"/>
             <p className="text-[10px] text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition">How are future events shown?</p>
@@ -196,11 +210,30 @@ export default function News() {
           </div>
 
           {tab==='news' && (
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-2 ml-auto flex-wrap">
+              {/* Category filter */}
+              <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
+                {categories.map(cat => (
+                  <button key={cat} onClick={() => { setSourceCategory(cat); const first = cat==='All'?RSS_SOURCES[0]:RSS_SOURCES.find(s=>s.category===cat)||RSS_SOURCES[0]; setSourceIdx(RSS_SOURCES.indexOf(first)) }}
+                    className={`px-2.5 py-1 text-[11px] rounded font-medium transition ${sourceCategory===cat?'bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 shadow-sm':'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}>
+                    {cat}
+                  </button>
+                ))}
+              </div>
+              {/* Source selector */}
               <select value={sourceIdx} onChange={e => setSourceIdx(Number(e.target.value))}
                 className="text-xs px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none">
-                {RSS_SOURCES.map((s,i) => <option key={i} value={i}>{s.label}</option>)}
+                {visibleSources.map(s => (
+                  <option key={RSS_SOURCES.indexOf(s)} value={RSS_SOURCES.indexOf(s)}>{s.label}</option>
+                ))}
               </select>
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400"/>
+                <input value={newsSearch} onChange={e => setNewsSearch(e.target.value)}
+                  placeholder="Search news…"
+                  className="pl-7 pr-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none w-36"/>
+              </div>
               <button onClick={() => loadNews(sourceIdx)} disabled={newsLoading} className="p-1.5 rounded text-gray-400 hover:text-brand-500 transition disabled:opacity-40">
                 <RefreshCw className={`w-3.5 h-3.5 ${newsLoading?'animate-spin':''}`}/>
               </button>
@@ -219,30 +252,34 @@ export default function News() {
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          {/* NEWS */}
+          {/* ── NEWS ── */}
           {tab==='news' && (
             newsLoading ? (
               <div className="flex flex-col items-center gap-3 py-20 text-gray-400">
                 <RefreshCw className="w-6 h-6 animate-spin"/>
                 <p className="text-sm">Loading latest market news…</p>
               </div>
-            ) : articles.length===0 ? (
+            ) : filteredArticles.length===0 ? (
               <div className="flex flex-col items-center gap-4 py-20 text-center">
                 <Globe className="w-10 h-10 text-gray-200 dark:text-gray-700"/>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">No articles loaded</p>
-                <div className="flex gap-2 flex-wrap justify-center">
-                  {RSS_SOURCES.map((s,i) => (
-                    <button key={i} onClick={() => setSourceIdx(i)}
-                      className={`px-3 py-1.5 text-xs rounded-lg border transition ${i===sourceIdx?'border-brand-400 bg-brand-50 dark:bg-brand-500/10 text-brand-600':'border-gray-200 dark:border-gray-700 text-gray-500'}`}>
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-                <button onClick={() => loadNews(sourceIdx)} className="text-xs text-brand-500 hover:text-brand-600 underline">Retry</button>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  {newsSearch ? `No results for "${newsSearch}"` : 'No articles loaded'}
+                </p>
+                {newsSearch && <button onClick={() => setNewsSearch('')} className="text-xs text-brand-500 hover:underline">Clear search</button>}
+                {!newsSearch && (
+                  <div className="flex gap-2 flex-wrap justify-center">
+                    {RSS_SOURCES.map((s,i) => (
+                      <button key={i} onClick={() => setSourceIdx(i)}
+                        className={`px-3 py-1.5 text-xs rounded-lg border transition ${i===sourceIdx?'border-brand-400 bg-brand-50 dark:bg-brand-500/10 text-brand-600':'border-gray-200 dark:border-gray-700 text-gray-500'}`}>
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
-                {articles.map((a,i) => (
+                {filteredArticles.map((a,i) => (
                   <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
                     className="card p-4 flex gap-4 hover:border-brand-300 dark:hover:border-brand-700 transition group block no-underline">
                     {a.thumbnail && (
@@ -271,7 +308,7 @@ export default function News() {
             )
           )}
 
-          {/* CALENDAR */}
+          {/* ── CALENDAR ── */}
           {tab==='calendar' && (
             <div className="card overflow-hidden">
               <div className="grid text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 dark:bg-gray-800/50 px-4 py-2 border-b border-gray-100 dark:border-gray-800"
@@ -280,19 +317,31 @@ export default function News() {
                 <span className="text-right">Actual</span><span className="text-right">Forecast</span><span className="text-right">Previous</span>
               </div>
               {calLoading ? (
-                <div className="py-16 flex flex-col items-center gap-2 text-gray-400"><RefreshCw className="w-5 h-5 animate-spin"/><p className="text-sm">Loading…</p></div>
+                <div className="py-16 flex flex-col items-center gap-2 text-gray-400"><RefreshCw className="w-5 h-5 animate-spin"/><p className="text-sm">Loading events…</p></div>
               ) : isWknd ? (
-                <div className="py-12 text-center"><p className="text-sm font-medium text-gray-500">Markets closed on weekends</p></div>
+                <div className="py-12 text-center">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Markets closed on weekends</p>
+                  <p className="text-xs text-gray-400 mt-1">Navigate to a weekday using the arrows above</p>
+                </div>
               ) : dayEvents.length===0 ? (
-                <div className="py-12 flex flex-col items-center gap-2 text-center px-8">
+                <div className="py-12 flex flex-col items-center gap-3 text-center px-8">
                   <TrendingUp className="w-8 h-8 text-gray-200 dark:text-gray-700"/>
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    {eventDates.size>0?'No events match filters':'No events for this date'}
-                  </p>
-                  <p className="text-xs text-gray-400">Blue dots on the calendar mark days with events this week</p>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No events for {format(selectedDate,'EEEE, MMM d')}</p>
+                    <p className="text-xs text-gray-400 mt-1 max-w-xs">
+                      {allEvents.length > 0
+                        ? 'The ForexFactory feed covers the current week only. Blue dots on the mini calendar mark days with events.'
+                        : 'Loading economic events… try clicking Refresh.'}
+                    </p>
+                  </div>
+                  {allEvents.length === 0 && (
+                    <button onClick={loadCalendar} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-brand-500 hover:bg-brand-600 text-white rounded-lg transition">
+                      <RefreshCw className="w-3 h-3"/> Reload calendar
+                    </button>
+                  )}
                 </div>
               ) : dayEvents.map(event => (
-                <div key={event.id} className="grid px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/3 transition items-center border-b border-gray-50 dark:border-gray-800/60 text-sm"
+                <div key={event.id} className="grid px-4 py-3 hover:bg-gray-50 dark:hover:bg-white/3 transition items-center border-b border-gray-50 dark:border-gray-800/60"
                   style={{ gridTemplateColumns:'70px 90px 60px 1fr 80px 80px 80px' }}>
                   <span className="text-xs font-medium text-gray-700 dark:text-gray-300 tabular-nums">{event.time}</span>
                   <div className="flex items-center gap-1.5"><span>{FLAG[event.currency]||'🌐'}</span><span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{event.currency}</span></div>
