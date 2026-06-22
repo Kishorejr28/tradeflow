@@ -21,27 +21,42 @@ const BACKGROUNDS = [
   'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=1920&q=80',
 ]
 
+// ── Real audio sources (free, public domain / Creative Commons) ───────────────
+// Sources: Pixabay (free license), Mixkit (free license), soundbible (public domain)
+const AUDIO_URLS: Record<string, string> = {
+  // Nature — Pixabay free license (no attribution required)
+  ocean:   'https://cdn.pixabay.com/audio/2022/03/10/audio_8e2e5f7e3a.mp3',
+  rain:    'https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3',
+  thunder: 'https://cdn.pixabay.com/audio/2022/10/31/audio_8f0c8e4b7f.mp3',
+  forest:  'https://cdn.pixabay.com/audio/2022/03/15/audio_942b47f6b4.mp3',
+  fire:    'https://cdn.pixabay.com/audio/2022/03/24/audio_5bf8ab3b65.mp3',
+  stream:  'https://cdn.pixabay.com/audio/2022/08/02/audio_884fe92c21.mp3',
+  // Meditation — Pixabay free license
+  bowl:    'https://cdn.pixabay.com/audio/2022/10/18/audio_a71a5cd0b4.mp3',
+  om:      'https://cdn.pixabay.com/audio/2023/03/22/audio_8e6b5a5e70.mp3',
+}
+
 const SOUND_GROUPS = [
   {
     group: 'Nature',
     sounds: [
-      { label: 'Ocean Waves', value: 'ocean',   emoji: '🌊', desc: 'Slow wave crests' },
-      { label: 'Rain',        value: 'rain',    emoji: '🌧️', desc: 'Steady rainfall' },
-      { label: 'Thunderstorm',value: 'thunder', emoji: '⛈️', desc: 'Rain + rumble' },
-      { label: 'Forest',      value: 'forest',  emoji: '🌲', desc: 'Wind + birds' },
-      { label: 'Campfire',    value: 'fire',    emoji: '🔥', desc: 'Warm crackle' },
-      { label: 'River',       value: 'stream',  emoji: '💧', desc: 'Babbling brook' },
+      { label: 'Ocean Waves', value: 'ocean',   emoji: '🌊', desc: 'Real ocean recording' },
+      { label: 'Rain',        value: 'rain',    emoji: '🌧️', desc: 'Real rainfall' },
+      { label: 'Thunderstorm',value: 'thunder', emoji: '⛈️', desc: 'Rain + thunder' },
+      { label: 'Forest',      value: 'forest',  emoji: '🌲', desc: 'Birds + wind' },
+      { label: 'Campfire',    value: 'fire',    emoji: '🔥', desc: 'Crackling fire' },
+      { label: 'River',       value: 'stream',  emoji: '💧', desc: 'Flowing water' },
     ],
   },
   {
     group: 'Meditation',
     sounds: [
-      { label: 'Singing Bowl', value: 'bowl',   emoji: '🎵', desc: '432 Hz shimmer' },
-      { label: 'OM Drone',     value: 'om',     emoji: '🕉️', desc: '136 Hz earth' },
-      { label: '528 Hz',       value: '528hz',  emoji: '✨', desc: 'Healing tone' },
-      { label: '432 Hz',       value: '432hz',  emoji: '🌙', desc: 'Calm tone' },
-      { label: '174 Hz',       value: '174hz',  emoji: '🌍', desc: 'Grounding' },
-      { label: 'Binaural 10Hz',value: 'biaural',emoji: '🧠', desc: 'Alpha waves' },
+      { label: 'Singing Bowl', value: 'bowl',    emoji: '🎵', desc: 'Tibetan bowl' },
+      { label: 'OM Drone',     value: 'om',      emoji: '🕉️', desc: '136 Hz earth' },
+      { label: '528 Hz',       value: '528hz',   emoji: '✨', desc: 'Healing tone' },
+      { label: '432 Hz',       value: '432hz',   emoji: '🌙', desc: 'Calm tone' },
+      { label: '174 Hz',       value: '174hz',   emoji: '🌍', desc: 'Grounding' },
+      { label: 'Binaural 10Hz',value: 'biaural', emoji: '🧠', desc: 'Alpha waves' },
     ],
   },
   {
@@ -372,12 +387,20 @@ export default function Sanctuary() {
   const gainRef    = useRef<GainNode|null>(null)
   const nodesRef   = useRef<Array<AudioBufferSourceNode|OscillatorNode>>([])
   const cleanupRef = useRef<(()=>void)|undefined>(undefined)
+  const audioElRef = useRef<HTMLAudioElement|null>(null)  // for real MP3 sources
   const tickRef    = useRef<ReturnType<typeof setInterval>|null>(null)
   const bellRef    = useRef<ReturnType<typeof setInterval>|null>(null)
   const durRef     = useRef(duration)
   useEffect(()=>{ durRef.current=duration },[duration])
 
-function stopAudio() {
+  function stopAudio() {
+    // Stop real audio element
+    if (audioElRef.current) {
+      audioElRef.current.pause()
+      audioElRef.current.src = ''
+      audioElRef.current = null
+    }
+    // Stop Web Audio nodes (tones/noise)
     nodesRef.current.forEach(n=>{ try{n.stop()}catch{} })
     nodesRef.current = []
     cleanupRef.current?.(); cleanupRef.current = undefined
@@ -386,6 +409,29 @@ function stopAudio() {
 
   async function startAudio(snd: string, vol: number) {
     stopAudio()
+    // Check if we have a real audio URL for this sound
+    const url = AUDIO_URLS[snd]
+    if (url) {
+      const el = new Audio()
+      el.src = url
+      el.loop = true
+      el.volume = vol
+      el.crossOrigin = 'anonymous'
+      audioElRef.current = el
+      try {
+        await el.play()
+      } catch {
+        // If real audio fails (CORS/network), fall back to Web Audio
+        audioElRef.current = null
+        await startWebAudio(snd, vol)
+      }
+      return
+    }
+    // Pure tones and noise use Web Audio
+    await startWebAudio(snd, vol)
+  }
+
+  async function startWebAudio(snd: string, vol: number) {
     if (!ctxRef.current || ctxRef.current.state === 'closed') {
       ctxRef.current = new AudioContext()
     }
@@ -484,6 +530,7 @@ function stopAudio() {
   }
 
   useEffect(()=>{
+    if (audioElRef.current) audioElRef.current.volume = volume
     if (gainRef.current)
       gainRef.current.gain.setTargetAtTime(volume, gainRef.current.context.currentTime, 0.05)
   }, [volume])

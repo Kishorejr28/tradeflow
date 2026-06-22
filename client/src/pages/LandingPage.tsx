@@ -4,7 +4,7 @@ import { useAppStore } from '@/store/appStore'
 import {
   TrendingUp, Play, BarChart2, BookOpen, FileText, Leaf,
   ChevronRight, Check, Star, ArrowRight, Newspaper,
-  RefreshCw, Target, Zap, Globe, Lock, Sparkles,
+  RefreshCw, Target, Zap, Globe, Lock, Sparkles, NotebookPen,
 } from 'lucide-react'
 
 // ── Animated Candlestick Chart ────────────────────────────────────────────────
@@ -173,11 +173,13 @@ function AnimatedChart() {
 // ── Data ──────────────────────────────────────────────────────────────────────
 const FEATURES = [
   { icon: RefreshCw,  title: 'Chart Replay',       desc: 'Replay real historical data for any stock, forex pair, crypto or index. Practice without risking money.', color: 'text-brand-500',   bg: 'bg-brand-50 dark:bg-brand-500/10' },
-  { icon: FileText,   title: 'Trading Journal',     desc: 'Log every trade with emotions, plan adherence, notes. Calendar view shows wins and losses at a glance.',   color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
-  { icon: BookOpen,   title: 'Edge Plans',          desc: 'Build your trading playbook with charting processes, entry criteria and invalidation rules.',               color: 'text-blue-600',    bg: 'bg-blue-50 dark:bg-blue-500/10' },
-  { icon: BarChart2,  title: 'Live Trading View',   desc: 'TradingView charts with multi-layout, watchlist, price alerts, pip calculator and $100k demo account.',    color: 'text-purple-600',  bg: 'bg-purple-50 dark:bg-purple-500/10' },
-  { icon: Newspaper,  title: 'Economic Calendar',   desc: 'Live economic events filtered by currency and impact. Never get caught by high-impact news again.',         color: 'text-orange-600',  bg: 'bg-orange-50 dark:bg-orange-500/10' },
-  { icon: Leaf,       title: 'Sanctuary',           desc: 'Meditation timer with real ambient sounds — ocean, rain, forest. Build focus before every session.',        color: 'text-teal-600',    bg: 'bg-teal-50 dark:bg-teal-500/10' },
+  { icon: FileText,   title: 'Trading Journal',     desc: 'Log every trade with emotions, plan adherence, notes and voice reflections. Calendar view shows patterns.', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
+  { icon: BookOpen,   title: 'Edge Plans',          desc: 'Build your trading playbook with step-by-step charting processes, entry criteria and invalidation rules.',  color: 'text-blue-600',    bg: 'bg-blue-50 dark:bg-blue-500/10' },
+  { icon: BarChart2,  title: 'Live Trading',        desc: 'TradingView charts with multi-layout, watchlist, price alerts, pip calculator and a $100k demo account.',  color: 'text-purple-600',  bg: 'bg-purple-50 dark:bg-purple-500/10' },
+  { icon: Newspaper,  title: 'Economic Calendar',   desc: 'Live economic events filtered by currency and impact. Never get caught off-guard by high-impact news.',    color: 'text-orange-600',  bg: 'bg-orange-50 dark:bg-orange-500/10' },
+  { icon: NotebookPen,title: 'Notebook',            desc: 'Your personal trading library. Write notes, use templates (Daily Review, Pre-Market Prep) and save lessons.', color: 'text-pink-600',   bg: 'bg-pink-50 dark:bg-pink-500/10' },
+  { icon: Leaf,       title: 'Sanctuary',           desc: 'Meditation timer with guided ambient audio — ocean, rain, forest, binaural beats. Reset your mind before every session.', color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-500/10' },
+  { icon: Target,     title: 'Performance Stats',   desc: 'Dashboard with equity curve, win rate, average R, P&L calendar. See your progress at a glance every day.', color: 'text-amber-600',  bg: 'bg-amber-50 dark:bg-amber-500/10' },
 ]
 
 const MARKETS = [
@@ -234,11 +236,15 @@ const PRO_FEATURES = [
 
 export default function LandingPage() {
   const navigate = useNavigate()
-  const { setUser } = useAppStore()
+  const { setUser, user } = useAppStore()
   const [email, setEmail] = useState('')
   const [waitlisted, setWaitlisted] = useState(false)
 
+  // If already logged in, show go-to-app button in nav
+  const isLoggedIn = !!user
+
   const goToAuth = () => navigate('/auth')
+  const goToApp  = () => navigate('/app/dashboard')
   const demoLogin = () => {
     setUser({
       id: 'demo', email: 'demo@tradeflow.app', full_name: 'Demo Trader',
@@ -265,11 +271,25 @@ export default function LandingPage() {
             ))}
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={goToAuth} className="text-sm text-gray-400 hover:text-white transition">Sign in</button>
-            <button onClick={goToAuth}
-              className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg transition shadow-lg shadow-brand-500/20">
-              Get started free
-            </button>
+            {isLoggedIn ? (
+              <>
+                <span className="text-sm text-gray-400">
+                  {user?.full_name?.split(' ')[0] || user?.email?.split('@')[0]}
+                </span>
+                <button onClick={goToApp}
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg transition shadow-lg shadow-brand-500/20">
+                  Go to dashboard →
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={goToAuth} className="text-sm text-gray-400 hover:text-white transition">Sign in</button>
+                <button onClick={goToAuth}
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg transition shadow-lg shadow-brand-500/20">
+                  Get started free
+                </button>
+              </>
+            )}
           </div>
         </div>
       </nav>
@@ -367,7 +387,7 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <button onClick={goToAuth}
+              <button onClick={isLoggedIn ? goToApp : goToAuth}
                 className="px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-xl transition flex items-center gap-2">
                 Try chart replay free <ChevronRight className="w-4 h-4" />
               </button>

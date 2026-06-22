@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   isSameMonth, isToday, getDay,
@@ -6,15 +6,118 @@ import {
 import {
   TrendingUp, TrendingDown, Target, Activity,
   ChevronLeft, ChevronRight, ArrowUpRight, PlusCircle, Plus,
+  X, BookOpen, FileText, BarChart2, Newspaper, Leaf, NotebookPen, History,
 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { useIsDemo } from '@/hooks/useIsDemo'
 import { useAppStore } from '@/store/appStore'
 import type { DailyStat } from '@/types'
 import AddTradeModal, { type ManualTrade } from '@/components/ui/AddTradeModal'
+import { useNavigate } from 'react-router-dom'
 
 // re-export type so Journal can import it too
 export type { ManualTrade }
+
+// ── Greeting helper ───────────────────────────────────────────────────────────
+function getGreeting(name: string | undefined, isFirstTime: boolean): { headline: string; sub: string; emoji: string } {
+  const hour = new Date().getHours()
+  const first = name?.split(' ')[0] || 'Trader'
+  let timeGreet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  if (isFirstTime) {
+    return {
+      emoji: '🎉',
+      headline: `Welcome to TradeFlow, ${first}!`,
+      sub: "You're all set. Take a quick tour to see what's here — it only takes 2 minutes.",
+    }
+  }
+  const motivational = [
+    'Discipline beats talent every single day.',
+    'Every trade is a lesson. Every lesson is progress.',
+    'The best traders are the ones who never stop learning.',
+    'Consistency is a process, not an event.',
+    'One good trade at a time.',
+    'Your edge only works if you follow it.',
+    'Patience is a strategy.',
+  ]
+  const msg = motivational[new Date().getDay() % motivational.length]
+  return {
+    emoji: hour < 12 ? '☀️' : hour < 17 ? '📈' : '🌙',
+    headline: `${timeGreet}, ${first}`,
+    sub: msg,
+  }
+}
+
+// ── Feature Tour ──────────────────────────────────────────────────────────────
+const TOUR_STEPS = [
+  { icon: BarChart2,   path: '/app/trading',   color: 'bg-brand-500',   title: 'Trading',            desc: 'Live TradingView chart with demo account, multi-layout, price alerts and watchlist.' },
+  { icon: History,     path: '/app/replay',    color: 'bg-purple-500',  title: 'Chart Replay',       desc: 'Replay real historical data for any global stock, forex or crypto — bar by bar.' },
+  { icon: FileText,    path: '/app/journal',   color: 'bg-emerald-600', title: 'Journal',            desc: 'Log every trade with emotion tracking. Post-trade popup appears automatically.' },
+  { icon: BookOpen,    path: '/app/edge',      color: 'bg-blue-600',    title: 'Edge Plans',         desc: 'Build your trading playbook with entry criteria, steps and invalidation rules.' },
+  { icon: NotebookPen, path: '/app/notebook',  color: 'bg-pink-600',    title: 'Notebook',           desc: 'Notes, templates and reviews. Use built-in templates like Daily Review and Pre-Market Prep.' },
+  { icon: Newspaper,   path: '/app/news',      color: 'bg-orange-600',  title: 'News',               desc: 'Economic calendar with currency and impact filters. Never be surprised by news again.' },
+  { icon: Leaf,        path: '/app/sanctuary', color: 'bg-teal-600',    title: 'Sanctuary',          desc: 'Meditation timer with ambient sounds. Build focus and discipline before every session.' },
+]
+
+function FeatureTour({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate()
+  const [step, setStep] = useState(0)
+  const current = TOUR_STEPS[step]
+  const Icon = current.icon
+  const isLast = step === TOUR_STEPS.length - 1
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+      <div className="bg-white dark:bg-[#1e1e1e] rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        {/* Progress bar */}
+        <div className="h-1 bg-gray-100 dark:bg-gray-800">
+          <div className="h-1 bg-brand-500 transition-all duration-300"
+            style={{ width: `${((step + 1) / TOUR_STEPS.length) * 100}%` }} />
+        </div>
+        <div className="p-7">
+          <div className="flex items-center justify-between mb-6">
+            <span className="text-xs font-medium text-gray-400">{step + 1} of {TOUR_STEPS.length}</span>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className={`w-14 h-14 rounded-2xl ${current.color} flex items-center justify-center mb-5`}>
+            <Icon className="w-7 h-7 text-white" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">{current.title}</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-8">{current.desc}</p>
+          {/* Dots */}
+          <div className="flex items-center justify-center gap-1.5 mb-7">
+            {TOUR_STEPS.map((_, i) => (
+              <button key={i} onClick={() => setStep(i)}
+                className={`rounded-full transition-all ${i === step ? 'w-5 h-1.5 bg-brand-500' : i < step ? 'w-1.5 h-1.5 bg-brand-300 dark:bg-brand-700' : 'w-1.5 h-1.5 bg-gray-200 dark:bg-gray-700'}`} />
+            ))}
+          </div>
+          <div className="flex gap-2">
+            {step > 0 && (
+              <button onClick={() => setStep(s => s - 1)}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                Back
+              </button>
+            )}
+            <button onClick={() => { navigate(current.path); onClose() }}
+              className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+              Open {current.title}
+            </button>
+            <button onClick={() => { if (isLast) onClose(); else setStep(s => s + 1) }}
+              className="flex-1 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold transition">
+              {isLast ? '✓ Done' : 'Next →'}
+            </button>
+          </div>
+          {!isLast && (
+            <button onClick={onClose} className="w-full text-center text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 mt-4 transition">
+              Skip tour
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const DEMO_TRADES: DailyStat[] = [
   { date: '2026-06-01', pnl: 1240, trades: 2, wins: 2, losses: 0, win_rate: 100, avg_r: 1.8 },
@@ -67,9 +170,21 @@ function EmptyEquity() {
 export default function Dashboard() {
   const isDemo = useIsDemo()
   const user = useAppStore((s) => s.user)
-  const { setShowTutorial, addLocalTrade, localTrades } = useAppStore()
+  const { setShowTutorial, addLocalTrade, localTrades, seenTutorial } = useAppStore()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [showAddTrade, setShowAddTrade] = useState(false)
+  const [showTour, setShowTour] = useState(false)
+  const [greetingDismissed, setGreetingDismissed] = useState(false)
+
+  const isFirstTime = !isDemo && user && !seenTutorial[user.id]
+
+  // Auto-show tour for first-time real users
+  useEffect(() => {
+    if (isFirstTime && !isDemo) {
+      const t = setTimeout(() => setShowTour(true), 800)
+      return () => clearTimeout(t)
+    }
+  }, []) // eslint-disable-line
 
   const handleAddTrade = (t: ManualTrade) => {
     addLocalTrade(t)
@@ -130,6 +245,36 @@ export default function Dashboard() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {showAddTrade && <AddTradeModal onSave={handleAddTrade} onClose={() => setShowAddTrade(false)} />}
+      {showTour && <FeatureTour onClose={() => { setShowTour(false); setShowTutorial(false) }} />}
+
+      {/* ── Welcome / Motivational banner ── */}
+      {!greetingDismissed && !isDemo && (() => {
+        const g = getGreeting(user?.full_name, !!isFirstTime)
+        return (
+          <div className={`relative mb-6 rounded-2xl px-5 py-4 flex items-center justify-between gap-4 ${isFirstTime ? 'bg-gradient-to-r from-brand-500 to-purple-600 text-white shadow-lg shadow-brand-500/20' : 'bg-brand-50 dark:bg-brand-500/10 border border-brand-100 dark:border-brand-500/20'}`}>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">{g.emoji}</span>
+              <div>
+                <p className={`font-bold text-sm ${isFirstTime ? 'text-white' : 'text-brand-700 dark:text-brand-300'}`}>{g.headline}</p>
+                <p className={`text-xs mt-0.5 ${isFirstTime ? 'text-white/80' : 'text-brand-500 dark:text-brand-400'}`}>{g.sub}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {isFirstTime && (
+                <button onClick={() => setShowTour(true)}
+                  className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded-lg transition">
+                  Take the tour →
+                </button>
+              )}
+              <button onClick={() => setGreetingDismissed(true)}
+                className={`p-1 rounded transition ${isFirstTime ? 'text-white/60 hover:text-white' : 'text-brand-400 hover:text-brand-600'}`}>
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )
+      })()}
+
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
