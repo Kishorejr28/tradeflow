@@ -4,6 +4,7 @@ import { supabase, hasSupabaseConfig } from '@/lib/supabase'
 import { useAppStore } from '@/store/appStore'
 import Layout from '@/components/layout/Layout'
 import AuthPage from '@/pages/AuthPage'
+import LandingPage from '@/pages/LandingPage'
 import Dashboard from '@/pages/Dashboard'
 import Trading from '@/pages/Trading'
 import Replay from '@/pages/Replay'
@@ -86,16 +87,17 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/" element={<LandingPage />} />
         <Route path="/auth" element={<AuthPage />} />
         <Route
-          path="/"
+          path="/app"
           element={
             <ProtectedRoute>
               <Layout />
             </ProtectedRoute>
           }
         >
-          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route index element={<Navigate to="/app/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="trading" element={<Trading />} />
           <Route path="replay" element={<Replay />} />
@@ -106,7 +108,7 @@ export default function App() {
           <Route path="sanctuary" element={<Sanctuary />} />
           <Route path="settings" element={<Settings />} />
         </Route>
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   )

@@ -260,39 +260,74 @@ function SymbolSearch({ current, onSelect }: { current:string; onSelect:(s:strin
     return ()=>document.removeEventListener('mousedown',fn)
   },[])
 
+  const filteredGroups = ASSET_GROUPS.map(g=>({
+    ...g,
+    assets: g.assets.filter(a=>!query||a.toLowerCase().includes(query.toLowerCase()))
+  })).filter(g=>g.assets.length>0)
+
+  // Allow pressing Enter on any typed symbol — passes it directly to Yahoo
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key==='Enter' && query.trim()) {
+      onSelect(query.trim().toUpperCase())
+      setQuery('')
+      setOpen(false)
+    }
+  }
+
   return (
     <div ref={wrapRef} className="relative">
-      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-600 bg-gray-800 cursor-text"
+      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 cursor-text"
            onClick={()=>setOpen(true)}>
         <Search className="w-3.5 h-3.5 text-gray-400 shrink-0"/>
         <input
           value={query}
           onChange={e=>{setQuery(e.target.value);setOpen(true)}}
           onFocus={()=>setOpen(true)}
+          onKeyDown={handleKeyDown}
           placeholder={current}
-          className="w-28 text-xs bg-transparent text-gray-200 placeholder-gray-500 focus:outline-none"
+          className="w-32 text-xs bg-transparent text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none"
         />
         {query&&<button onClick={()=>setQuery('')}><X className="w-3 h-3 text-gray-400"/></button>}
       </div>
       {open&&(
-        <div className="absolute top-full left-0 mt-1 w-64 bg-[#1e1e1e] border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
-          <div className="max-h-80 overflow-y-auto">
-            {ASSET_GROUPS.map(g=>{
-              const items = g.assets.filter(a=>!query||a.toLowerCase().includes(query.toLowerCase()))
-              if(!items.length) return null
-              return (
+        <div className="absolute top-full left-0 mt-1 w-80 bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+          {/* Type any ticker hint */}
+          <div className="px-3 py-2 bg-brand-50 dark:bg-brand-500/10 border-b border-gray-100 dark:border-gray-800">
+            <p className="text-[10px] text-brand-600 dark:text-brand-400 font-medium">
+              💡 Type any ticker + Enter — works for every global market
+            </p>
+            <p className="text-[10px] text-gray-400 mt-0.5">
+              India: RELIANCE.NS · Germany: SAP.DE · UK: SHEL.L · Japan: 7203.T · HK: 0700.HK
+            </p>
+          </div>
+          {/* Enter to search for custom ticker */}
+          {query && (
+            <button onClick={()=>{onSelect(query.trim().toUpperCase());setQuery('');setOpen(false)}}
+              className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition border-b border-gray-100 dark:border-gray-800">
+              <Search className="w-3.5 h-3.5 text-brand-500 shrink-0"/>
+              <span className="text-xs font-bold text-brand-600 dark:text-brand-400">Search "{query.toUpperCase()}"</span>
+              <span className="text-[10px] text-gray-400 ml-auto">↵ Enter</span>
+            </button>
+          )}
+          <div className="max-h-72 overflow-y-auto">
+            {filteredGroups.length === 0 && query ? (
+              <div className="px-3 py-4 text-xs text-gray-400 text-center">
+                No preset match — press Enter to try "{query.toUpperCase()}" directly
+              </div>
+            ) : (
+              filteredGroups.map(g=>(
                 <div key={g.group}>
-                  <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-800 sticky top-0">{g.group}</div>
-                  {items.map(a=>(
+                  <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 dark:bg-gray-800 sticky top-0">{g.group}</div>
+                  {g.assets.map(a=>(
                     <button key={a} onClick={()=>{onSelect(a);setQuery('');setOpen(false)}}
-                      className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-700 transition flex items-center justify-between ${a===current?'text-brand-400':'text-gray-300'}`}>
+                      className={`w-full text-left px-3 py-2 text-xs hover:bg-brand-50 dark:hover:bg-brand-500/10 transition flex items-center justify-between ${a===current?'text-brand-600 dark:text-brand-400':'text-gray-700 dark:text-gray-300'}`}>
                       <span className="font-medium">{a}</span>
-                      {a===current&&<span className="text-[10px] text-brand-500">●</span>}
+                      {a===current&&<span className="text-brand-500 text-[10px]">●</span>}
                     </button>
                   ))}
                 </div>
-              )
-            })}
+              ))
+            )}
           </div>
         </div>
       )}

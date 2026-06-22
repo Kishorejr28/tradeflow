@@ -36,7 +36,7 @@ export default function AuthPage() {
       account_currency: 'USD',
       created_at: new Date().toISOString(),
     })
-    navigate('/dashboard')
+    navigate('/app/dashboard')
   }
 
   const handleGoogleLogin = async () => {
@@ -71,7 +71,7 @@ export default function AuthPage() {
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) setError(error.message)
-        else navigate('/dashboard')
+        else navigate('/app/dashboard')
       }
     } catch {
       setError('Could not connect — check your internet connection.')

@@ -18,14 +18,14 @@ import { useState } from 'react'
 import { useAppStore } from '@/store/appStore'
 
 const NAV = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/trading', icon: TrendingUp, label: 'Trading' },
-  { to: '/replay', icon: History, label: 'Replay' },
-  { to: '/edge', icon: BookOpen, label: 'Edge' },
-  { to: '/journal', icon: FileText, label: 'Journal' },
-  { to: '/notebook', icon: NotebookPen, label: 'Notebook' },
-  { to: '/news', icon: Newspaper, label: 'News' },
-  { to: '/sanctuary', icon: Leaf, label: 'Sanctuary' },
+  { to: '/app/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/app/trading', icon: TrendingUp, label: 'Trading' },
+  { to: '/app/replay', icon: History, label: 'Replay' },
+  { to: '/app/edge', icon: BookOpen, label: 'Edge' },
+  { to: '/app/journal', icon: FileText, label: 'Journal' },
+  { to: '/app/notebook', icon: NotebookPen, label: 'Notebook' },
+  { to: '/app/news', icon: Newspaper, label: 'News' },
+  { to: '/app/sanctuary', icon: Leaf, label: 'Sanctuary' },
 ]
 
 export default function Sidebar() {
@@ -77,7 +77,7 @@ export default function Sidebar() {
       {/* Bottom controls */}
       <div className="px-2 pb-4 space-y-0.5 border-t border-gray-100 dark:border-gray-800/60 pt-3">
         <NavLink
-          to="/settings"
+          to="/app/settings"
           className={({ isActive }) =>
             `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               isActive
