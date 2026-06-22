@@ -4,13 +4,14 @@ import { useAppStore } from '@/store/appStore'
 import {
   Users, Clock, Crown, BarChart2, RefreshCw, ChevronDown, ChevronUp,
   Check, X, Shield, Zap, Lock, Unlock, Mail, TrendingUp, Search,
-  ToggleLeft, ToggleRight, AlertCircle,
+  ToggleLeft, ToggleRight, AlertCircle, UserPlus, Key, Info,
 } from 'lucide-react'
 import {
   adminGetAllUsers, adminGetWaitlist, adminGetStats, adminUpdateUserPlan,
   adminGetFeatureDefinitions, adminGetUserFlags, adminSetUserFlag,
   adminMarkWaitlistConverted, type Plan,
 } from '@/lib/adminApi'
+import { supabase, hasSupabaseConfig } from '@/lib/supabase'
 
 // ── Only this email gets access (also guarded at route level) ─────────────────
 const ADMIN_EMAIL = 'kishorejr28@gmail.com'
@@ -72,7 +73,6 @@ function saveLocalPlans(plans: Record<string, Plan>) {
   localStorage.setItem(LOCAL_PLANS_KEY, JSON.stringify(plans))
 }
 
-// Built-in feature list (doesn't need Supabase)
 const BUILTIN_FEATURES: FeatureDef[] = [
   { key:'journal_unlimited',    label:'Unlimited Journal Entries', description:'Remove 5/day limit',                      default_plan:'pro', category:'journal'  },
   { key:'edge_plans_unlimited', label:'Unlimited Edge Plans',      description:'Remove 3 plan limit',                     default_plan:'pro', category:'edge'     },
@@ -89,6 +89,117 @@ const BUILTIN_FEATURES: FeatureDef[] = [
   { key:'economic_calendar',    label:'Economic Calendar',         description:'Live forex factory calendar',              default_plan:'free',category:'general'  },
   { key:'demo_trading',         label:'Demo Trading Account',      description:'$100k demo account',                       default_plan:'free',category:'trading'  },
 ]
+
+// ── Local users storage ───────────────────────────────────────────────────────
+const LOCAL_USERS_KEY = 'tf-admin-local-users'
+function loadLocalUsers(): UserRow[] {
+  try { return JSON.parse(localStorage.getItem(LOCAL_USERS_KEY) || '[]') } catch { return [] }
+}
+function saveLocalUsers(u: UserRow[]) { localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(u)) }
+
+// ── Add User Modal ────────────────────────────────────────────────────────────
+function AddUserModal({ onClose, onAdded }: { onClose: ()=>void; onAdded: (u: UserRow)=>void }) {
+  const [email,    setEmail]    = useState('')
+  const [name,     setName]     = useState('')
+  const [password, setPassword] = useState('')
+  const [plan,     setPlan]     = useState<Plan>('free')
+  const [showPw,   setShowPw]   = useState(false)
+  const [loading,  setLoading]  = useState(false)
+  const [error,    setError]    = useState('')
+
+  const handleCreate = async () => {
+    if (!email)               { setError('Email is required'); return }
+    if (password.length < 6)  { setError('Password must be at least 6 characters'); return }
+    setLoading(true); setError('')
+
+    if (hasSupabaseConfig) {
+      const { data, error: authErr } = await supabase.auth.signUp({
+        email, password, options: { data: { full_name: name } },
+      })
+      if (authErr) { setError(authErr.message); setLoading(false); return }
+      const uid = data.user?.id ?? `local-${Date.now()}`
+      onAdded({ user_id: uid, plan, plan_started_at: new Date().toISOString(), created_at: new Date().toISOString(), email, notes: `${name || 'User'} — created by admin | pw: ${password}` })
+    } else {
+      onAdded({ user_id: `local-${Date.now()}`, plan, plan_started_at: new Date().toISOString(), created_at: new Date().toISOString(), email, notes: `${name || 'User'} — local only | pw: ${password}` })
+    }
+    setLoading(false); onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+      <div className="bg-white dark:bg-[#1e1e1e] rounded-2xl shadow-2xl w-full max-w-sm">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+          <div className="flex items-center gap-2">
+            <UserPlus className="w-4 h-4 text-brand-500"/>
+            <h3 className="font-semibold text-gray-900 dark:text-white">Add User</h3>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><X className="w-4 h-4"/></button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20">
+            <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5"/>
+            <p className="text-xs text-blue-700 dark:text-blue-400 leading-relaxed">
+              {hasSupabaseConfig
+                ? 'User will be created in Supabase. They can log in immediately with this email + password.'
+                : 'No Supabase connected — user saved locally for admin testing only. They cannot log in to the app.'}
+            </p>
+          </div>
+
+          {[
+            { label:'Email *', value:email, set:setEmail, type:'email', placeholder:'user@example.com' },
+            { label:'Full name', value:name, set:setName, type:'text', placeholder:'Optional' },
+          ].map(f => (
+            <div key={f.label}>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">{f.label}</label>
+              <input value={f.value} onChange={e => f.set(e.target.value)} type={f.type} placeholder={f.placeholder}
+                className="w-full px-3 py-2.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/30"/>
+            </div>
+          ))}
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Password *</label>
+            <div className="relative">
+              <input value={password} onChange={e => setPassword(e.target.value)}
+                type={showPw ? 'text' : 'password'} placeholder="Min 6 characters"
+                className="w-full px-3 py-2.5 pr-10 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/30"/>
+              <button type="button" onClick={() => setShowPw(p=>!p)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <Key className="w-3.5 h-3.5"/>
+              </button>
+            </div>
+            {password && (
+              <p className="text-[10px] text-gray-400 mt-1 font-mono">
+                {showPw ? password : '●'.repeat(password.length)} ({password.length} chars)
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Plan</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['free','pro','admin'] as Plan[]).map(p => (
+                <button key={p} onClick={() => setPlan(p)}
+                  className={`py-2 rounded-lg text-xs font-semibold transition border ${plan===p?'bg-brand-500 text-white border-brand-500':'border-gray-200 dark:border-gray-700 text-gray-500 hover:border-brand-400'}`}>
+                  {p === 'free' ? '🪙 Trader' : p === 'pro' ? '🥇 Edge Pro' : '⚡ Admin'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {error && <p className="text-xs text-red-500 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg">{error}</p>}
+
+          <div className="flex gap-2 pt-1">
+            <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition">Cancel</button>
+            <button onClick={handleCreate} disabled={loading}
+              className="flex-1 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold transition disabled:opacity-50">
+              {loading ? 'Creating…' : 'Create User'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function StatCard({ label, value, sub, color }: { label: string; value: number|string; sub?: string; color?: string }) {
   return (
@@ -177,6 +288,8 @@ export default function AdminDashboard() {
   const [savingPlan, setSavingPlan] = useState<string | null>(null)
 
   const [localPlans, setLocalPlans] = useState<Record<string, Plan>>(loadLocalPlans)
+  const [localUsers, setLocalUsers] = useState<UserRow[]>(loadLocalUsers)
+  const [showAddUser, setShowAddUser] = useState(false)
 
   // Guard now handled at route level (AdminRoute in App.tsx)
 
@@ -220,11 +333,18 @@ export default function AdminDashboard() {
     },
   ]
 
-  // Merge Supabase users with dummy users (dummy ones always visible)
+  // Merge Supabase users + dummy presets + locally added users
   const allUsers = [
     ...DUMMY_USERS,
-    ...users.filter(u => !DUMMY_USERS.find(d => d.user_id === u.user_id)),
+    ...localUsers.filter(u => !DUMMY_USERS.find(d => d.user_id === u.user_id)),
+    ...users.filter(u => !DUMMY_USERS.find(d => d.user_id === u.user_id) && !localUsers.find(l => l.user_id === u.user_id)),
   ]
+
+  const handleUserAdded = (u: UserRow) => {
+    const next = [...localUsers, u]
+    setLocalUsers(next)
+    saveLocalUsers(next)
+  }
 
   const changePlan = async (userId: string, plan: Plan) => {
     setSavingPlan(userId)
@@ -374,11 +494,17 @@ export default function AdminDashboard() {
               <div className="relative flex-1 max-w-xs">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400"/>
                 <input value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="Search by user ID…"
+                  placeholder="Search by email or ID…"
                   className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30"/>
               </div>
               <p className="text-xs text-gray-400">{filteredUsers.length} users</p>
+              <button onClick={() => setShowAddUser(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg transition">
+                <UserPlus className="w-3.5 h-3.5"/> Add User
+              </button>
             </div>
+
+            {showAddUser && <AddUserModal onClose={() => setShowAddUser(false)} onAdded={handleUserAdded} />}
 
             <div className="card overflow-hidden">
               <table className="w-full text-sm">
