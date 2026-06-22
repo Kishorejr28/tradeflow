@@ -12,7 +12,7 @@ import {
   adminMarkWaitlistConverted, type Plan,
 } from '@/lib/adminApi'
 
-// ── Only this email gets access ───────────────────────────────────────────────
+// ── Only this email gets access (also guarded at route level) ─────────────────
 const ADMIN_EMAIL = 'kishorejr28@gmail.com'
 
 interface UserRow {
@@ -166,12 +166,8 @@ export default function AdminDashboard() {
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
   const [savingPlan, setSavingPlan] = useState<string | null>(null)
 
-  // Guard: only admin email
-  useEffect(() => {
-    if (!user || user.email !== ADMIN_EMAIL) {
-      navigate('/app/dashboard')
-    }
-  }, [user, navigate])
+  // Guard now handled at route level (AdminRoute in App.tsx)
+  // No redirect needed here
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -210,7 +206,7 @@ export default function AdminDashboard() {
     (w.name ?? '').toLowerCase().includes(search.toLowerCase())
   )
 
-  if (!user || user.email !== ADMIN_EMAIL) return null
+  if (!user) return null
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">

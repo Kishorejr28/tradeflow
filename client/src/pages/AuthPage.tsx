@@ -3,8 +3,6 @@ import { TrendingUp, Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { supabase, hasSupabaseConfig } from '@/lib/supabase'
 import { useAppStore } from '@/store/appStore'
 import { useNavigate } from 'react-router-dom'
-
-// Animated floating cards (visual element like the reference's shapes)
 function FloatingCards() {
   return (
     <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
@@ -58,14 +56,23 @@ export default function AuthPage() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const navigate = useNavigate()
-  const { setUser } = useAppStore()
+  const { setUser, setUserPlan } = useAppStore()
 
   const demoLogin = () => {
     setUser({
       id: 'demo', email: 'demo@tradeflow.app', full_name: 'Demo Trader',
       timezone: 'UTC', account_currency: 'USD', created_at: new Date().toISOString(),
     })
+    setUserPlan('pro') // demo gets pro features
     navigate('/app/dashboard')
+  }
+
+  // Local admin bypass — no Supabase needed
+  const checkAdminCredentials = (emailOrUser: string, pw: string) => {
+    return (
+      (emailOrUser.toLowerCase() === 'kishore' || emailOrUser.toLowerCase() === 'kishorejr28@gmail.com') &&
+      pw === 'TradeFlow@2026'
+    )
   }
 
   const handleGoogleLogin = async () => {
@@ -81,6 +88,19 @@ export default function AuthPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(''); setMessage(''); setLoading(true)
+
+    // Admin bypass — works without Supabase
+    if (mode === 'signin' && checkAdminCredentials(email, password)) {
+      setUser({
+        id: 'admin-local', email: 'kishorejr28@gmail.com', full_name: 'Kishore JR',
+        timezone: 'UTC', account_currency: 'USD', created_at: new Date().toISOString(),
+      })
+      setUserPlan('admin')
+      setLoading(false)
+      navigate('/admin')
+      return
+    }
+
     try {
       if (mode === 'signup') {
         const { error } = await supabase.auth.signUp({

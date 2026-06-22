@@ -1,33 +1,34 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { supabase } from '@/lib/supabase'
-import type { User, Trade, TradingPlan, JournalEntry } from '@/types'
+import type { User, Trade, TradingPlan } from '@/types'
 import type { ManualTrade } from '@/components/ui/AddTradeModal'
 
-interface LocalTrade {
-  id: string
-  date: string
-  symbol: string
-  direction: 'long' | 'short'
-  pnl: number
-  planFollowed: boolean
-  emotion: string
-  note: string
-  entryPrice: number
-  exitPrice: number
-  lots: number
+export type Plan = 'free' | 'pro' | 'admin'
+
+// Creative plan names
+export const PLAN_NAMES: Record<Plan, string> = {
+  free:  'Trader',    // free tier — "Trader"
+  pro:   'Edge Pro',  // paid tier — "Edge Pro"
+  admin: 'Admin',
 }
 
-interface LocalNote {
-  id: string
-  title: string
-  content: string
-  date: string
-  createdAt: string
+export const PLAN_COLORS: Record<Plan, string> = {
+  free:  'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
+  pro:   'bg-gradient-to-r from-brand-500 to-purple-600 text-white',
+  admin: 'bg-gradient-to-r from-amber-400 to-amber-600 text-white',
 }
+
+interface LocalTrade {
+  id: string; date: string; symbol: string; direction: 'long'|'short'
+  pnl: number; planFollowed: boolean; emotion: string; note: string
+  entryPrice: number; exitPrice: number; lots: number
+}
+interface LocalNote { id:string; title:string; content:string; date:string; createdAt:string }
 
 interface AppState {
   user: User | null
+  userPlan: Plan
   theme: 'light' | 'dark'
   trades: Trade[]
   plans: TradingPlan[]
@@ -37,6 +38,7 @@ interface AppState {
   tutorialStep: number
   seenTutorial: Record<string, boolean>
   setUser: (user: User | null) => void
+  setUserPlan: (plan: Plan) => void
   setTheme: (theme: 'light' | 'dark') => void
   setTrades: (trades: Trade[]) => void
   setPlans: (plans: TradingPlan[]) => void
@@ -52,6 +54,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       user: null,
+      userPlan: 'free',
       theme: 'light',
       trades: [],
       plans: [],
@@ -61,38 +64,26 @@ export const useAppStore = create<AppState>()(
       tutorialStep: 0,
       seenTutorial: {},
       setUser: (user) => set({ user }),
+      setUserPlan: (userPlan) => set({ userPlan }),
       setTheme: (theme) => {
         set({ theme })
-        if (theme === 'dark') {
-          document.documentElement.classList.add('dark')
-        } else {
-          document.documentElement.classList.remove('dark')
-        }
+        if (theme === 'dark') document.documentElement.classList.add('dark')
+        else document.documentElement.classList.remove('dark')
       },
       setTrades: (trades) => set({ trades }),
       setPlans: (plans) => set({ plans }),
       addLocalTrade: (trade) => set((s) => ({
         localTrades: [...s.localTrades, {
-          id: `lt-${Date.now()}`,
-          date: trade.date,
-          symbol: trade.symbol,
-          direction: trade.direction,
-          pnl: trade.pnl,
-          planFollowed: trade.planFollowed,
-          emotion: trade.emotion,
-          note: trade.note,
-          entryPrice: trade.entryPrice,
-          exitPrice: trade.exitPrice,
-          lots: trade.lots,
+          id: `lt-${Date.now()}`, date: trade.date, symbol: trade.symbol,
+          direction: trade.direction, pnl: trade.pnl, planFollowed: trade.planFollowed,
+          emotion: trade.emotion, note: trade.note, entryPrice: trade.entryPrice,
+          exitPrice: trade.exitPrice, lots: trade.lots,
         }],
       })),
       addLocalNote: (note) => set((s) => ({
         localNotes: [...s.localNotes, {
-          id: `ln-${Date.now()}`,
-          title: note.title,
-          content: note.content,
-          date: note.date,
-          createdAt: new Date().toISOString(),
+          id: `ln-${Date.now()}`, title: note.title, content: note.content,
+          date: note.date, createdAt: new Date().toISOString(),
         }],
       })),
       setShowTutorial: (show) => set({ showTutorial: show, tutorialStep: 0 }),
@@ -101,7 +92,7 @@ export const useAppStore = create<AppState>()(
         set((s) => ({ seenTutorial: { ...s.seenTutorial, [userId]: true } })),
       signOut: async () => {
         await supabase.auth.signOut()
-        set({ user: null, trades: [], plans: [], localTrades: [], localNotes: [] })
+        set({ user: null, userPlan: 'free', trades: [], plans: [], localTrades: [], localNotes: [] })
       },
     }),
     {
@@ -111,11 +102,10 @@ export const useAppStore = create<AppState>()(
         seenTutorial: state.seenTutorial,
         localTrades: state.localTrades,
         localNotes: state.localNotes,
+        userPlan: state.userPlan,
       }),
       onRehydrateStorage: () => (state) => {
-        if (state?.theme === 'dark') {
-          document.documentElement.classList.add('dark')
-        }
+        if (state?.theme === 'dark') document.documentElement.classList.add('dark')
       },
     }
   )

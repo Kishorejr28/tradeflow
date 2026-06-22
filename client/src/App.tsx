@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { supabase, hasSupabaseConfig } from '@/lib/supabase'
-import { useAppStore } from '@/store/appStore'
+import { useAppStore, type Plan } from '@/store/appStore'
+import { getUserPlan } from '@/lib/adminApi'
 import Layout from '@/components/layout/Layout'
 import AuthPage from '@/pages/AuthPage'
 import LandingPage from '@/pages/LandingPage'
@@ -16,64 +17,82 @@ import Sanctuary from '@/pages/Sanctuary'
 import Settings from '@/pages/Settings'
 import AdminDashboard from '@/pages/AdminDashboard'
 
+const ADMIN_EMAIL = 'kishorejr28@gmail.com'
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const user = useAppStore((s) => s.user)
   if (!user) return <Navigate to="/auth" replace />
   return <>{children}</>
 }
 
-// Handles post-auth redirect inside the Router context
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const user = useAppStore((s) => s.user)
+  const plan  = useAppStore((s) => s.userPlan)
+  // Allow if admin email OR admin plan
+  if (!user) return <Navigate to="/auth" replace />
+  if (user.email !== ADMIN_EMAIL && plan !== 'admin') return <Navigate to="/app/dashboard" replace />
+  return <>{children}</>
+}
+
 function AuthHandler() {
-  const { setUser, setShowTutorial, seenTutorial } = useAppStore()
+  const { setUser, setUserPlan, setShowTutorial, seenTutorial } = useAppStore()
   const navigate = useNavigate()
   const location = useLocation()
   const [loading, setLoading] = useState(true)
 
+  const applySession = async (supaUser: any, event?: string) => {
+    const u = {
+      id: supaUser.id,
+      email: supaUser.email!,
+      full_name: supaUser.user_metadata?.full_name,
+      avatar_url: supaUser.user_metadata?.avatar_url,
+      timezone: 'UTC', account_currency: 'USD',
+      created_at: supaUser.created_at,
+    }
+    setUser(u)
+
+    // Load plan from Supabase (or default to 'free')
+    try {
+      const plan = await getUserPlan(supaUser.id) as Plan
+      setUserPlan(plan)
+    } catch {
+      // If admin schema not set up yet, infer from email
+      if (supaUser.email === ADMIN_EMAIL) setUserPlan('admin')
+      else setUserPlan('free')
+    }
+
+    if (!seenTutorial[supaUser.id]) setShowTutorial(true)
+
+    if (event === 'SIGNED_IN' || !event) {
+      if (location.pathname === '/' || location.pathname === '/auth') {
+        navigate('/app/dashboard', { replace: true })
+      }
+    }
+  }
+
   useEffect(() => {
     if (!hasSupabaseConfig) { setLoading(false); return }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email!,
-          full_name: session.user.user_metadata?.full_name,
-          avatar_url: session.user.user_metadata?.avatar_url,
-          timezone: 'UTC', account_currency: 'USD',
-          created_at: session.user.created_at,
-        })
-        if (!seenTutorial[session.user.id]) setShowTutorial(true)
-        // If on landing or auth page, redirect to app
-        if (location.pathname === '/' || location.pathname === '/auth') {
-          navigate('/app/dashboard', { replace: true })
-        }
-      }
-    }).catch(() => {}).finally(() => setLoading(false))
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (session?.user) applySession(session.user)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email!,
-          full_name: session.user.user_metadata?.full_name,
-          avatar_url: session.user.user_metadata?.avatar_url,
-          timezone: 'UTC', account_currency: 'USD',
-          created_at: session.user.created_at,
-        })
-        if (!seenTutorial[session.user.id]) setShowTutorial(true)
-        // Redirect to app on sign-in events
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          if (location.pathname === '/' || location.pathname === '/auth') {
-            navigate('/app/dashboard', { replace: true })
-          }
+          applySession(session.user, event)
         }
       } else {
         setUser(null)
+        setUserPlan('free')
       }
     })
 
     return () => subscription.unsubscribe()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, []) // eslint-disable-line
 
   if (loading) {
     return (
@@ -82,7 +101,6 @@ function AuthHandler() {
       </div>
     )
   }
-
   return null
 }
 
@@ -93,26 +111,22 @@ export default function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/auth" element={<AuthPage />} />
-        <Route
-          path="/app"
-          element={<ProtectedRoute><Layout /></ProtectedRoute>}
-        >
+        <Route path="/app" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route index element={<Navigate to="/app/dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="trading" element={<Trading />} />
-          <Route path="replay" element={<Replay />} />
-          <Route path="edge" element={<Edge />} />
-          <Route path="journal" element={<Journal />} />
-          <Route path="notebook" element={<Notebook />} />
-          <Route path="news" element={<News />} />
-          <Route path="sanctuary" element={<Sanctuary />} />
-          <Route path="settings" element={<Settings />} />
+          <Route path="dashboard"  element={<Dashboard />} />
+          <Route path="trading"    element={<Trading />} />
+          <Route path="replay"     element={<Replay />} />
+          <Route path="edge"       element={<Edge />} />
+          <Route path="journal"    element={<Journal />} />
+          <Route path="notebook"   element={<Notebook />} />
+          <Route path="news"       element={<News />} />
+          <Route path="sanctuary"  element={<Sanctuary />} />
+          <Route path="settings"   element={<Settings />} />
         </Route>
-        {/* Admin route — only accessible by admin email, guarded inside the component */}
-        <Route path="/admin" element={<AdminDashboard />} />
+        {/* Admin — protected, requires admin email or plan */}
+        <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   )
 }
-
