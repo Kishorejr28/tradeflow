@@ -221,14 +221,21 @@ export default function AuthPage() {
             )}
             <div>
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="px-2 py-0.5 bg-brand-500 text-white rounded text-[10px] font-bold">EDGE</span>
-                  Email
-                </span>
+                {mode === 'signup' ? 'Email' : 'Username or Email'}
               </label>
-              <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
-                placeholder="Enter your email" required
-                className="w-full px-4 py-3 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition"/>
+              <input
+                type={mode === 'signup' ? 'email' : 'text'}
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder={mode === 'signup' ? 'you@example.com' : 'Email, username, or "trader" / "pro"'}
+                required
+                className="w-full px-4 py-3 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition"
+              />
+              {mode === 'signin' && (
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Quick access: type <span className="font-mono text-gray-500">trader</span>, <span className="font-mono text-gray-500">pro</span>, or <span className="font-mono text-gray-500">kishore</span>
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 uppercase tracking-wide">Password</label>
@@ -246,7 +253,7 @@ export default function AuthPage() {
             {error && <p className="text-xs text-red-500 bg-red-50 dark:bg-red-500/10 px-3 py-2 rounded-lg">{error}</p>}
             {message && <p className="text-xs text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 px-3 py-2 rounded-lg">{message}</p>}
 
-            <button type="submit" disabled={loading||(!hasSupabaseConfig&&mode!=='signup')}
+            <button type="submit" disabled={loading}
               className="w-full py-3.5 px-4 bg-brand-500 hover:bg-brand-600 text-white text-sm font-bold rounded-xl transition shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
               {loading?(
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>
