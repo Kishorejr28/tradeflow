@@ -55,6 +55,41 @@ const PLAN_ICON: Record<Plan, React.ReactNode> = {
   admin: <Zap className="w-3 h-3"/>,
 }
 
+// ── Local feature flag store (works without Supabase) ─────────────────────────
+const LOCAL_FLAGS_KEY = 'tf-admin-flags'
+const LOCAL_PLANS_KEY = 'tf-admin-plans'
+
+function loadLocalFlags(): Record<string, Record<string, boolean>> {
+  try { return JSON.parse(localStorage.getItem(LOCAL_FLAGS_KEY) || '{}') } catch { return {} }
+}
+function saveLocalFlags(flags: Record<string, Record<string, boolean>>) {
+  localStorage.setItem(LOCAL_FLAGS_KEY, JSON.stringify(flags))
+}
+function loadLocalPlans(): Record<string, Plan> {
+  try { return JSON.parse(localStorage.getItem(LOCAL_PLANS_KEY) || '{}') } catch { return {} }
+}
+function saveLocalPlans(plans: Record<string, Plan>) {
+  localStorage.setItem(LOCAL_PLANS_KEY, JSON.stringify(plans))
+}
+
+// Built-in feature list (doesn't need Supabase)
+const BUILTIN_FEATURES: FeatureDef[] = [
+  { key:'journal_unlimited',    label:'Unlimited Journal Entries', description:'Remove 5/day limit',                      default_plan:'pro', category:'journal'  },
+  { key:'edge_plans_unlimited', label:'Unlimited Edge Plans',      description:'Remove 3 plan limit',                     default_plan:'pro', category:'edge'     },
+  { key:'ai_coach',             label:'AI Trade Coach',            description:'AI-powered analysis and suggestions',      default_plan:'pro', category:'ai'       },
+  { key:'prop_simulator',       label:'Prop Firm Simulator',       description:'FTMO/MyForexFunds challenge simulation',   default_plan:'pro', category:'trading'  },
+  { key:'monte_carlo',          label:'Monte Carlo Analysis',      description:'Strategy stress testing',                  default_plan:'pro', category:'analytics'},
+  { key:'csv_import',           label:'MT4/MT5 CSV Import',        description:'Import trades from MetaTrader',            default_plan:'pro', category:'journal'  },
+  { key:'multi_account',        label:'Multi-Account Tracking',    description:'Track multiple trading accounts',          default_plan:'pro', category:'trading'  },
+  { key:'voice_notes',          label:'Voice Note Transcription',  description:'Auto-transcribe voice journal notes',      default_plan:'pro', category:'journal'  },
+  { key:'advanced_charts',      label:'Advanced Chart Replay',     description:'2yr+ historical data, all timeframes',     default_plan:'pro', category:'replay'   },
+  { key:'export_data',          label:'Export Data',               description:'Export journal/stats as CSV/PDF',          default_plan:'pro', category:'general'  },
+  { key:'replay_basic',         label:'Basic Chart Replay',        description:'150+ instruments, real historical data',   default_plan:'free',category:'replay'   },
+  { key:'sanctuary',            label:'Sanctuary Meditation',      description:'Meditation timer and ambient sounds',      default_plan:'free',category:'general'  },
+  { key:'economic_calendar',    label:'Economic Calendar',         description:'Live forex factory calendar',              default_plan:'free',category:'general'  },
+  { key:'demo_trading',         label:'Demo Trading Account',      description:'$100k demo account',                       default_plan:'free',category:'trading'  },
+]
+
 function StatCard({ label, value, sub, color }: { label: string; value: number|string; sub?: string; color?: string }) {
   return (
     <div className="card p-5">
@@ -66,28 +101,17 @@ function StatCard({ label, value, sub, color }: { label: string; value: number|s
 }
 
 function UserFlagsPanel({ userId, features }: { userId: string; features: FeatureDef[] }) {
-  const [flags, setFlags] = useState<Record<string, boolean | null>>({})
-  const [saving, setSaving] = useState<string | null>(null)
+  const [allFlags, setAllFlags] = useState<Record<string, Record<string, boolean>>>(loadLocalFlags)
 
-  useEffect(() => {
-    adminGetUserFlags(userId).then(({ data }) => {
-      const m: Record<string, boolean> = {}
-      data?.forEach(f => { m[f.feature_key] = f.enabled })
-      setFlags(m)
-    })
-  }, [userId])
+  const flags = allFlags[userId] ?? {}
 
-  const toggle = async (key: string, current: boolean | null) => {
-    const newVal = current === null ? true : current === true ? false : null
-    setSaving(key)
-    if (newVal === null) {
-      // Remove override (use plan default)
-      await adminSetUserFlag(userId, key, false) // reset
-    } else {
-      await adminSetUserFlag(userId, key, newVal)
-    }
-    setFlags(p => ({ ...p, [key]: newVal === null ? undefined! : newVal }))
-    setSaving(null)
+  const setFlag = (key: string, val: boolean | null) => {
+    const next = { ...allFlags }
+    if (!next[userId]) next[userId] = {}
+    if (val === null) delete next[userId][key]
+    else next[userId][key] = val
+    setAllFlags(next)
+    saveLocalFlags(next)
   }
 
   const categories = [...new Set(features.map(f => f.category))]
@@ -100,47 +124,33 @@ function UserFlagsPanel({ userId, features }: { userId: string; features: Featur
           <div className="space-y-1">
             {features.filter(f => f.category === cat).map(f => {
               const override = flags[f.key]
-              const isOn = override === true
+              const isOn  = override === true
               const isOff = override === false
-              const isDefault = override === undefined || override === null
+              const isDefault = override === undefined
               return (
                 <div key={f.key} className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-medium text-gray-700 dark:text-gray-300">{f.label}</p>
                     <p className="text-[10px] text-gray-400 truncate">{f.description}</p>
-                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded mt-0.5 inline-block ${f.default_plan === 'pro' ? 'bg-brand-50 dark:bg-brand-500/10 text-brand-500' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'}`}>
+                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded mt-0.5 inline-block ${f.default_plan==='pro'?'bg-brand-50 dark:bg-brand-500/10 text-brand-500':'bg-gray-100 dark:bg-gray-800 text-gray-500'}`}>
                       default: {f.default_plan}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 ml-3 shrink-0">
-                    {saving === f.key ? (
-                      <RefreshCw className="w-4 h-4 animate-spin text-gray-400"/>
-                    ) : (
-                      <>
-                        <button onClick={() => toggle(f.key, isOn ? true : null)}
-                          title={isOn ? 'Force OFF' : 'Force ON'}
-                          className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition ${
-                            isOn ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10'
-                          }`}>
-                          {isOn ? <Unlock className="w-2.5 h-2.5"/> : <Lock className="w-2.5 h-2.5"/>}
-                          {isOn ? 'ON' : 'ON'}
-                        </button>
-                        <button onClick={() => toggle(f.key, isOff ? false : null)}
-                          title="Force OFF"
-                          className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition ${
-                            isOff ? 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 hover:bg-red-50 dark:hover:bg-red-500/10'
-                          }`}>
-                          <Lock className="w-2.5 h-2.5"/>
-                          OFF
-                        </button>
-                        {!isDefault && (
-                          <button onClick={() => toggle(f.key, null)}
-                            title="Use plan default"
-                            className="px-1.5 py-1 rounded text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition">
-                            ↺
-                          </button>
-                        )}
-                      </>
+                    <button onClick={() => setFlag(f.key, isOn ? null : true)}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition ${isOn?'bg-emerald-500 text-white shadow-sm':'bg-gray-100 dark:bg-gray-800 text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:text-emerald-600'}`}>
+                      <Unlock className="w-2.5 h-2.5"/> ON
+                    </button>
+                    <button onClick={() => setFlag(f.key, isOff ? null : false)}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition ${isOff?'bg-red-500 text-white shadow-sm':'bg-gray-100 dark:bg-gray-800 text-gray-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600'}`}>
+                      <Lock className="w-2.5 h-2.5"/> OFF
+                    </button>
+                    {!isDefault && (
+                      <button onClick={() => setFlag(f.key, null)}
+                        className="px-2 py-1.5 rounded-lg text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition font-bold"
+                        title="Reset to plan default">
+                        ↺
+                      </button>
                     )}
                   </div>
                 </div>
@@ -166,21 +176,25 @@ export default function AdminDashboard() {
   const [expandedUser, setExpandedUser] = useState<string | null>(null)
   const [savingPlan, setSavingPlan] = useState<string | null>(null)
 
+  const [localPlans, setLocalPlans] = useState<Record<string, Plan>>(loadLocalPlans)
+
   // Guard now handled at route level (AdminRoute in App.tsx)
-  // No redirect needed here
 
   const refresh = useCallback(async () => {
     setLoading(true)
+    // Try Supabase first, fall back to local storage
     const [s, u, w, f] = await Promise.all([
-      adminGetStats(),
-      adminGetAllUsers(),
-      adminGetWaitlist(),
-      adminGetFeatureDefinitions(),
+      adminGetStats().catch(() => ({ total:0, free:0, pro:0, waitlist:0, waitlistConverted:0 })),
+      adminGetAllUsers().catch(() => ({ data: [] })),
+      adminGetWaitlist().catch(() => ({ data: [] })),
+      adminGetFeatureDefinitions().catch(() => ({ data: [] })),
     ])
-    setStats(s)
+    setStats(s as any)
     setUsers((u.data ?? []) as UserRow[])
     setWaitlist((w.data ?? []) as WaitlistRow[])
-    setFeatures((f.data ?? []) as FeatureDef[])
+    // Use built-in features if Supabase has none
+    const supabaseFeatures = (f.data ?? []) as FeatureDef[]
+    setFeatures(supabaseFeatures.length > 0 ? supabaseFeatures : BUILTIN_FEATURES)
     setLoading(false)
   }, [])
 
@@ -188,7 +202,12 @@ export default function AdminDashboard() {
 
   const changePlan = async (userId: string, plan: Plan) => {
     setSavingPlan(userId)
-    await adminUpdateUserPlan(userId, plan)
+    // Save locally always (works without Supabase)
+    const next = { ...localPlans, [userId]: plan }
+    setLocalPlans(next)
+    saveLocalPlans(next)
+    // Also try Supabase
+    try { await adminUpdateUserPlan(userId, plan) } catch { /* offline */ }
     setUsers(p => p.map(u => u.user_id === userId ? { ...u, plan } : u))
     setSavingPlan(null)
   }

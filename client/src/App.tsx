@@ -51,39 +51,51 @@ function AuthHandler() {
     }
     setUser(u)
 
-    // Load plan from Supabase (or default to 'free')
     try {
       const plan = await getUserPlan(supaUser.id) as Plan
       setUserPlan(plan)
     } catch {
-      // If admin schema not set up yet, infer from email
       if (supaUser.email === ADMIN_EMAIL) setUserPlan('admin')
       else setUserPlan('free')
     }
 
     if (!seenTutorial[supaUser.id]) setShowTutorial(true)
 
-    if (event === 'SIGNED_IN' || !event) {
+    // Only redirect to dashboard on explicit sign-in, NOT on page refresh
+    // On refresh, stay on whatever page the user was on
+    if (event === 'SIGNED_IN') {
       if (location.pathname === '/' || location.pathname === '/auth') {
         navigate('/app/dashboard', { replace: true })
       }
+      // If already on an /app/* page, stay there
     }
+    // No event = getSession on load = stay on current page
   }
 
   useEffect(() => {
-    if (!hasSupabaseConfig) { setLoading(false); return }
+    if (!hasSupabaseConfig) {
+      setLoading(false)
+      // For local admin bypass — user already in store, just unblock
+      return
+    }
 
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
-        if (session?.user) applySession(session.user)
+        if (session?.user) {
+          // Restore session on refresh — no navigation, stay on current page
+          applySession(session.user, undefined)
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false))
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          applySession(session.user, event)
+        if (event === 'SIGNED_IN') {
+          applySession(session.user, 'SIGNED_IN')
+        } else if (event === 'TOKEN_REFRESHED') {
+          // Silent token refresh — just update user, don't navigate
+          applySession(session.user, undefined)
         }
       } else {
         setUser(null)

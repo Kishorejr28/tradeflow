@@ -236,9 +236,17 @@ const PRO_FEATURES = [
 
 export default function LandingPage() {
   const navigate = useNavigate()
-  const { setUser, user } = useAppStore()
+  const { setUser, setUserPlan, user } = useAppStore()
   const [email, setEmail] = useState('')
   const [waitlisted, setWaitlisted] = useState(false)
+  const [priceCurrency, setPriceCurrency] = useState<'USD'|'INR'|'EUR'>('USD')
+
+  const PRICE = {
+    USD: { symbol:'$',  amount:12,  note:'per month · ~₹999' },
+    INR: { symbol:'₹',  amount:999, note:'per month · ~$12' },
+    EUR: { symbol:'€',  amount:11,  note:'per month · ~₹999' },
+  }
+  const pc = PRICE[priceCurrency]
 
   // If already logged in, show go-to-app button in nav
   const isLoggedIn = !!user
@@ -250,6 +258,7 @@ export default function LandingPage() {
       id: 'demo', email: 'demo@tradeflow.app', full_name: 'Demo Trader',
       timezone: 'UTC', account_currency: 'USD', created_at: new Date().toISOString(),
     })
+    setUserPlan('pro')
     navigate('/app/dashboard')
   }
 
@@ -455,9 +464,26 @@ export default function LandingPage() {
       {/* ── Pricing ──────────────────────────────────────────────────────── */}
       <section id="pricing" className="py-24 px-6 border-t border-white/5">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <h2 className="text-4xl font-bold mb-4">Simple, honest pricing</h2>
             <p className="text-gray-400 text-lg">Start free. Upgrade when you're serious about trading.</p>
+
+            {/* Currency selector */}
+            <div className="flex items-center justify-center gap-2 mt-6">
+              <span className="text-xs text-gray-500">Currency:</span>
+              <div className="flex rounded-lg border border-white/10 overflow-hidden">
+                {([
+                  { code:'USD', symbol:'$',  flag:'🇺🇸' },
+                  { code:'INR', symbol:'₹',  flag:'🇮🇳' },
+                  { code:'EUR', symbol:'€',  flag:'🇪🇺' },
+                ] as const).map(c => (
+                  <button key={c.code} onClick={() => setPriceCurrency(c.code)}
+                    className={`px-3 py-1.5 text-xs font-medium transition flex items-center gap-1 ${priceCurrency===c.code?'bg-brand-500 text-white':'bg-white/5 text-gray-400 hover:bg-white/10'}`}>
+                    {c.flag} {c.code}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
           <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
             {/* Free */}
@@ -486,8 +512,8 @@ export default function LandingPage() {
                 <Sparkles className="w-4 h-4 text-brand-400" />
                 <span className="text-brand-400 text-sm font-medium uppercase tracking-wide">Pro</span>
               </div>
-              <div className="text-5xl font-bold text-white mb-1">$12<span className="text-2xl text-gray-400">/mo</span></div>
-              <div className="text-gray-500 text-sm mb-8">Billed monthly. Cancel anytime.</div>
+              <div className="text-5xl font-bold text-white mb-1">{pc.symbol}{pc.amount}<span className="text-2xl text-gray-400">/mo</span></div>
+              <div className="text-gray-500 text-sm mb-8">{pc.note} · Cancel anytime.</div>
               <ul className="space-y-3 mb-8">
                 {PRO_FEATURES.map(f => (
                   <li key={f} className="flex items-start gap-2.5 text-sm text-gray-300">

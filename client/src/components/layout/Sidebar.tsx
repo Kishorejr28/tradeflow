@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, TrendingUp, BookOpen, FileText, NotebookPen,
   Newspaper, Leaf, Settings, ChevronLeft, Moon, Sun, LogOut,
-  History, Shield,
+  History, Shield, Sparkles, ArrowRight,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAppStore, PLAN_NAMES, PLAN_COLORS } from '@/store/appStore'
@@ -130,6 +130,23 @@ export default function Sidebar() {
             )}
           </div>
         </div>
+
+        {/* Gentle upgrade banner — only for free users, hidden when collapsed */}
+        {!collapsed && userPlan === 'free' && (
+          <div className="mx-2 mb-2 p-3 rounded-xl bg-gradient-to-br from-brand-500/10 to-purple-500/10 border border-brand-500/20 dark:border-brand-500/20">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <Sparkles className="w-3 h-3 text-brand-400 shrink-0"/>
+              <span className="text-[11px] font-bold text-brand-600 dark:text-brand-400">Upgrade to Edge Pro</span>
+            </div>
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-relaxed mb-2">
+              Unlock AI coach, unlimited journal & 2yr chart replay
+            </p>
+            <a href="/#pricing"
+              className="flex items-center justify-center gap-1 w-full py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-[11px] font-semibold transition">
+              See plans <ArrowRight className="w-2.5 h-2.5"/>
+            </a>
+          </div>
+        )}
 
         {/* Collapse */}
         <button onClick={() => setCollapsed(!collapsed)}
