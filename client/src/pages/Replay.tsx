@@ -249,6 +249,48 @@ function calcMACD(d: OHLCV[], f=12, s=26, sg=9) {
 }
 
 // ── Symbol Search ─────────────────────────────────────────────────────────────
+
+// Smart exchange suggestions — user types "SAP", we suggest SAP.DE, SAP on NYSE etc
+const EXCHANGE_SUGGESTIONS: Record<string, {suffix:string; exchange:string; flag:string}[]> = {
+  // common Indian companies
+  'RELIANCE':  [{suffix:'.NS',exchange:'NSE India',flag:'🇮🇳'}],
+  'TCS':       [{suffix:'.NS',exchange:'NSE India',flag:'🇮🇳'}],
+  'INFY':      [{suffix:'.NS',exchange:'NSE India',flag:'🇮🇳'},{suffix:'',exchange:'NYSE',flag:'🇺🇸'}],
+  'WIPRO':     [{suffix:'.NS',exchange:'NSE India',flag:'🇮🇳'},{suffix:'',exchange:'NYSE',flag:'🇺🇸'}],
+  'HDFCBANK':  [{suffix:'.NS',exchange:'NSE India',flag:'🇮🇳'}],
+  'SBIN':      [{suffix:'.NS',exchange:'NSE India',flag:'🇮🇳'}],
+  // German stocks
+  'SAP':       [{suffix:'.DE',exchange:'XETRA Germany',flag:'🇩🇪'},{suffix:'',exchange:'NYSE',flag:'🇺🇸'}],
+  'SIEMENS':   [{suffix:'.DE',exchange:'XETRA Germany',flag:'🇩🇪'}],
+  'BMW':       [{suffix:'.DE',exchange:'XETRA Germany',flag:'🇩🇪'}],
+  'VOLKSWAGEN':[{suffix:'.DE',exchange:'XETRA Germany',flag:'🇩🇪'}],
+  'BAYER':     [{suffix:'.DE',exchange:'XETRA Germany',flag:'🇩🇪'}],
+  // UK stocks
+  'SHELL':     [{suffix:'.L',exchange:'LSE UK',flag:'🇬🇧'},{suffix:'',exchange:'NYSE',flag:'🇺🇸'}],
+  'HSBC':      [{suffix:'.L',exchange:'LSE UK',flag:'🇬🇧'},{suffix:'',exchange:'NYSE',flag:'🇺🇸'}],
+  'BP':        [{suffix:'.L',exchange:'LSE UK',flag:'🇬🇧'},{suffix:'',exchange:'NYSE',flag:'🇺🇸'}],
+  // Japanese stocks
+  'TOYOTA':    [{suffix:'.T',exchange:'TSE Japan',flag:'🇯🇵'}],
+  'SONY':      [{suffix:'.T',exchange:'TSE Japan',flag:'🇯🇵'},{suffix:'',exchange:'NYSE',flag:'🇺🇸'}],
+  'NINTENDO':  [{suffix:'.T',exchange:'TSE Japan',flag:'🇯🇵'}],
+  // Korean
+  'SAMSUNG':   [{suffix:'.KS',exchange:'KRX Korea',flag:'🇰🇷'}],
+  // Chinese / HK
+  'ALIBABA':   [{suffix:'.HK',exchange:'HKEX',flag:'🇭🇰'},{suffix:'',exchange:'NYSE',flag:'🇺🇸'}],
+  'TENCENT':   [{suffix:'.HK',exchange:'HKEX',flag:'🇭🇰'}],
+  // Australian
+  'BHP':       [{suffix:'.AX',exchange:'ASX Australia',flag:'🇦🇺'},{suffix:'',exchange:'NYSE',flag:'🇺🇸'}],
+  'CBA':       [{suffix:'.AX',exchange:'ASX Australia',flag:'🇦🇺'}],
+}
+
+// Show exchange options when query matches a known multi-market stock
+function getExchangeSuggestions(query: string): {ticker:string;exchange:string;flag:string}[] {
+  const upper = query.toUpperCase().trim()
+  const match = EXCHANGE_SUGGESTIONS[upper]
+  if (!match) return []
+  return match.map(m => ({ ticker: upper+m.suffix, exchange: m.exchange, flag: m.flag }))
+}
+
 function SymbolSearch({ current, onSelect }: { current:string; onSelect:(s:string)=>void }) {
   const [query, setQuery] = useState('')
   const [open,  setOpen]  = useState(false)
@@ -265,12 +307,12 @@ function SymbolSearch({ current, onSelect }: { current:string; onSelect:(s:strin
     assets: g.assets.filter(a=>!query||a.toLowerCase().includes(query.toLowerCase()))
   })).filter(g=>g.assets.length>0)
 
-  // Allow pressing Enter on any typed symbol — passes it directly to Yahoo
+  const exchangeSuggestions = query.length >= 2 ? getExchangeSuggestions(query) : []
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key==='Enter' && query.trim()) {
       onSelect(query.trim().toUpperCase())
-      setQuery('')
-      setOpen(false)
+      setQuery(''); setOpen(false)
     }
   }
 
@@ -291,28 +333,61 @@ function SymbolSearch({ current, onSelect }: { current:string; onSelect:(s:strin
       </div>
       {open&&(
         <div className="absolute top-full left-0 mt-1 w-80 bg-white dark:bg-[#1e1e1e] border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
-          {/* Type any ticker hint */}
-          <div className="px-3 py-2 bg-brand-50 dark:bg-brand-500/10 border-b border-gray-100 dark:border-gray-800">
-            <p className="text-[10px] text-brand-600 dark:text-brand-400 font-medium">
-              💡 Type any ticker + Enter — works for every global market
-            </p>
-            <p className="text-[10px] text-gray-400 mt-0.5">
-              India: RELIANCE.NS · Germany: SAP.DE · UK: SHEL.L · Japan: 7203.T · HK: 0700.HK
-            </p>
-          </div>
-          {/* Enter to search for custom ticker */}
+          {/* Direct search */}
           {query && (
             <button onClick={()=>{onSelect(query.trim().toUpperCase());setQuery('');setOpen(false)}}
               className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition border-b border-gray-100 dark:border-gray-800">
               <Search className="w-3.5 h-3.5 text-brand-500 shrink-0"/>
               <span className="text-xs font-bold text-brand-600 dark:text-brand-400">Search "{query.toUpperCase()}"</span>
-              <span className="text-[10px] text-gray-400 ml-auto">↵ Enter</span>
+              <span className="text-[10px] text-gray-400 ml-auto">↵</span>
             </button>
           )}
-          <div className="max-h-72 overflow-y-auto">
-            {filteredGroups.length === 0 && query ? (
+
+          {/* Exchange suggestions — e.g. SAP shows SAP.DE (Germany) and SAP (NYSE) */}
+          {exchangeSuggestions.length > 0 && (
+            <div className="border-b border-gray-100 dark:border-gray-800">
+              <div className="px-3 py-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider bg-emerald-50 dark:bg-emerald-500/10">
+                Available on multiple exchanges
+              </div>
+              {exchangeSuggestions.map(s=>(
+                <button key={s.ticker} onClick={()=>{onSelect(s.ticker);setQuery('');setOpen(false)}}
+                  className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-brand-50 dark:hover:bg-brand-500/10 transition">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">{s.flag}</span>
+                    <div>
+                      <span className="text-xs font-bold text-gray-800 dark:text-gray-200">{s.ticker}</span>
+                      <span className="text-[10px] text-gray-400 ml-1.5">{s.exchange}</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-brand-500">Select</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Preset groups */}
+          <div className="max-h-64 overflow-y-auto">
+            {filteredGroups.length === 0 && query && exchangeSuggestions.length === 0 ? (
               <div className="px-3 py-4 text-xs text-gray-400 text-center">
-                No preset match — press Enter to try "{query.toUpperCase()}" directly
+                <p>No preset match for "{query.toUpperCase()}"</p>
+                <p className="mt-1 text-[10px]">Press Enter to search directly — works for any global stock</p>
+                <div className="mt-3 text-left bg-gray-50 dark:bg-gray-800 rounded-lg p-2.5 space-y-1">
+                  <p className="text-[10px] font-semibold text-gray-500">Exchange suffixes:</p>
+                  {[
+                    ['🇮🇳','.NS','India NSE','RELIANCE.NS'],
+                    ['🇩🇪','.DE','Germany','SAP.DE'],
+                    ['🇬🇧','.L','UK LSE','SHEL.L'],
+                    ['🇯🇵','.T','Japan','7203.T'],
+                    ['🇭🇰','.HK','Hong Kong','0700.HK'],
+                    ['🇦🇺','.AX','Australia','BHP.AX'],
+                    ['🇨🇦','.TO','Canada','RY.TO'],
+                    ['🇫🇷','.PA','France','MC.PA'],
+                  ].map(([flag,suffix,name,ex])=>(
+                    <p key={suffix} className="text-[10px] text-gray-400">
+                      <span>{flag}</span> <span className="font-mono text-gray-600 dark:text-gray-300">{suffix}</span> = {name} <span className="text-gray-400">e.g. {ex}</span>
+                    </p>
+                  ))}
+                </div>
               </div>
             ) : (
               filteredGroups.map(g=>(
