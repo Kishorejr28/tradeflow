@@ -63,11 +63,51 @@ const YAHOO_MAP: Record<string, string> = {
 }
 
 // ── Interval + range mapping ──────────────────────────────────────────────────
+// Yahoo Finance actual limits (tested):
+//   1m  → max 7d       5m  → max 60d
+//   15m → max 60d      1h  → max 730d (2y)
+//   1d  → 10y+         1wk → 20y+
+//
+// Strategy: use the highest-resolution data available for each TF,
+// then we slice to free(6mo) or pro(2y) in the app layer.
+
 const YF_INTERVAL: Record<string, string> = {
-  '1m':'1m','5m':'5m','15m':'15m','1h':'1h','4h':'1h','1D':'1d',
+  '1m':  '1m',
+  '5m':  '5m',
+  '15m': '15m',
+  '1h':  '60m',   // Yahoo uses '60m' not '1h'
+  '4h':  '60m',   // We'll aggregate 4 × 1h candles client-side
+  '1D':  '1d',
 }
-const YF_RANGE: Record<string, string> = {
-  '1m':'5d','5m':'1mo','15m':'3mo','1h':'2y','4h':'2y','1D':'10y',
+
+// Maximum range Yahoo will actually return for each interval
+const YF_RANGE_MAX: Record<string, string> = {
+  '1m':  '7d',
+  '5m':  '60d',
+  '15m': '60d',
+  '1h':  '730d',
+  '4h':  '730d',
+  '1D':  '10y',
+}
+
+// How many candles we give to free users (roughly 6 months)
+const FREE_CANDLE_LIMITS: Record<string, number> = {
+  '1m':  3000,   // ~5 trading days × 390min  ← 1m limited to 7d anyway
+  '5m':  3500,   // ~6 months × 390/5
+  '15m': 2000,   // ~6 months × 390/15 per day
+  '1h':  1100,   // ~6 months × 6.5h/day × 21 days
+  '4h':  400,    // ~6 months in 4h bars
+  '1D':  130,    // ~6 months of daily bars
+}
+
+// Pro users get the full dataset
+const PRO_CANDLE_LIMITS: Record<string, number> = {
+  '1m':  99999,
+  '5m':  99999,
+  '15m': 99999,
+  '1h':  5000,   // ~2 years of hourly data
+  '4h':  1300,   // ~2 years in 4h bars
+  '1D':  750,    // ~3 years of daily
 }
 
 // ── Resolve any user-typed symbol to a Yahoo ticker ───────────────────────────
@@ -113,32 +153,67 @@ export function resolveYahooSymbol(sym: string): string {
   return upper
 }
 
-// ── Cache ─────────────────────────────────────────────────────────────────────
+// ── Cache — keyed by sym+tf+plan so free/pro get different slices ─────────────
 const CACHE = new Map<string, { data: OHLCV[]; ts: number }>()
-const CACHE_TTL = 5 * 60 * 1000
+const CACHE_TTL = 10 * 60 * 1000  // 10 minutes
 
-// ── Fetch ─────────────────────────────────────────────────────────────────────
-async function fetchYahoo(yahooSym: string, interval: string, range: string): Promise<OHLCV[] | null> {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=${interval}&range=${range}&includePrePost=false`
-
-  const tryFetch = async (fetchUrl: string, parseAsProxy = false) => {
-    const res = await fetch(fetchUrl, { headers: { Accept: 'application/json' } })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const json = await res.json()
-    return parseAsProxy ? JSON.parse(json.contents) : json
+// ── 4h aggregation from 1h candles ────────────────────────────────────────────
+function aggregateTo4h(candles: OHLCV[]): OHLCV[] {
+  const out: OHLCV[] = []
+  for (let i = 0; i < candles.length; i += 4) {
+    const slice = candles.slice(i, i + 4)
+    if (!slice.length) continue
+    out.push({
+      time:   slice[0].time,
+      open:   slice[0].open,
+      high:   Math.max(...slice.map(c => c.high)),
+      low:    Math.min(...slice.map(c => c.low)),
+      close:  slice[slice.length - 1].close,
+      volume: slice.reduce((s, c) => s + c.volume, 0),
+    })
   }
+  return out
+}
 
-  let json: any = null
-  try {
-    json = await tryFetch(url)
-  } catch {
+// ── Fetch from Yahoo Finance ───────────────────────────────────────────────────
+// Uses query2 first (fewer rate limits), falls back to allorigins CORS proxy
+async function fetchYahoo(yahooSym: string, interval: string, range: string): Promise<OHLCV[] | null> {
+  // Try query2 first (less rate-limited than query1 in browser context)
+  const urls = [
+    `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=${interval}&range=${range}&includePrePost=false`,
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSym)}?interval=${interval}&range=${range}&includePrePost=false`,
+  ]
+
+  for (const url of urls) {
+    let json: any = null
     try {
-      json = await tryFetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, true)
-    } catch {
-      return null
+      const res = await fetch(url, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+        cache: 'no-store',
+      })
+      if (res.ok) { json = await res.json() }
+    } catch { /* try proxy */ }
+
+    if (!json) {
+      try {
+        const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+        const res = await fetch(proxy)
+        if (res.ok) {
+          const wrapper = await res.json()
+          json = JSON.parse(wrapper.contents)
+        }
+      } catch { continue }
+    }
+
+    if (json) {
+      const parsed = parseYahoo(json)
+      if (parsed && parsed.length > 10) return parsed
     }
   }
-  return parseYahoo(json)
+  return null
 }
 
 function parseYahoo(json: any): OHLCV[] | null {
@@ -159,6 +234,8 @@ function parseYahoo(json: any): OHLCV[] | null {
         volume: q.volume[i] ?? 0,
       })
     }
+    // Sort by time (some feeds return out of order)
+    out.sort((a, b) => (a.time as number) - (b.time as number))
     return out.length > 10 ? out : null
   } catch {
     return null
@@ -188,32 +265,80 @@ export async function fetchLiveQuote(sym: string): Promise<number | null> {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 export type DataSource = 'real' | 'synthetic'
-export interface FetchResult { data: OHLCV[]; source: DataSource; symbol: string }
+export interface FetchResult {
+  data: OHLCV[]
+  source: DataSource
+  symbol: string
+  totalCandles: number   // full dataset size
+  isPro: boolean
+  dataLimitNote?: string // shown in UI
+}
 
 export async function fetchCandles(
   sym: string,
   tf: string,
   fallback: (sym: string, tf: string) => OHLCV[],
+  isPro = false,
 ): Promise<FetchResult> {
-  const cacheKey = `${sym}-${tf}`
+  const cacheKey = `${sym}-${tf}-full`
   const cached = CACHE.get(cacheKey)
+
+  let fullData: OHLCV[] | null = null
+
   if (cached && Date.now() - cached.ts < CACHE_TTL) {
-    return { data: cached.data, source: 'real', symbol: sym }
+    fullData = cached.data
+  } else {
+    const yahooSym = resolveYahooSymbol(sym)
+    const interval = YF_INTERVAL[tf] ?? '1d'
+    const range    = YF_RANGE_MAX[tf] ?? '2y'
+
+    try {
+      let raw = await fetchYahoo(yahooSym, interval, range)
+      if (raw && raw.length > 20) {
+        // 4h needs aggregation from 1h source
+        if (tf === '4h') raw = aggregateTo4h(raw)
+        fullData = raw
+        CACHE.set(cacheKey, { data: raw, ts: Date.now() })
+      }
+    } catch { /* fall through */ }
   }
 
-  const yahooSym = resolveYahooSymbol(sym)
-  const interval = YF_INTERVAL[tf] ?? '1d'
-  const range    = YF_RANGE[tf]    ?? '2y'
+  if (!fullData || fullData.length < 20) {
+    const fb = fallback(sym, tf)
+    return { data: fb, source: 'synthetic', symbol: sym, totalCandles: fb.length, isPro, dataLimitNote: 'Simulated data — real data unavailable for this instrument' }
+  }
 
-  try {
-    const data = await fetchYahoo(yahooSym, interval, range)
-    if (data && data.length > 20) {
-      CACHE.set(cacheKey, { data, ts: Date.now() })
-      return { data, source: 'real', symbol: sym }
-    }
-  } catch { /* fall through */ }
+  const totalCandles = fullData.length
+  const limit = isPro
+    ? (PRO_CANDLE_LIMITS[tf] ?? 99999)
+    : (FREE_CANDLE_LIMITS[tf] ?? 130)
 
-  return { data: fallback(sym, tf), source: 'synthetic', symbol: sym }
+  const sliced = fullData.slice(-Math.min(limit, totalCandles))
+
+  const freeLimit  = FREE_CANDLE_LIMITS[tf] ?? 130
+  const proLimit   = PRO_CANDLE_LIMITS[tf] ?? 99999
+  const lockedMore = !isPro && totalCandles > freeLimit
+
+  const tfLabel: Record<string, string> = {
+    '1m':'1 min','5m':'5 min','15m':'15 min','1h':'1 hour','4h':'4 hour','1D':'daily',
+  }
+  const approxFreeTime: Record<string, string> = {
+    '1m':'5 days','5m':'2 months','15m':'2 months','1h':'6 months','4h':'6 months','1D':'6 months',
+  }
+  const approxProTime: Record<string, string> = {
+    '1m':'5 days','5m':'2 months','15m':'2 months','1h':'2 years','4h':'2 years','1D':'3 years',
+  }
+
+  return {
+    data: sliced,
+    source: 'real',
+    symbol: sym,
+    totalCandles,
+    isPro,
+    dataLimitNote: lockedMore
+      ? `Free plan: ~${approxFreeTime[tf]} of ${tfLabel[tf]} data (${sliced.length} bars). Upgrade to Pro for ~${approxProTime[tf]} (${Math.min(proLimit, totalCandles)} bars).`
+      : undefined,
+  }
 }
 
 export function clearCache(sym?: string) {

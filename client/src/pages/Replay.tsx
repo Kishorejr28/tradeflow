@@ -440,6 +440,10 @@ export default function Replay() {
   const [loading, setLoading] = useState(false)
   const [dataSource, setDataSource] = useState<'real'|'synthetic'>('synthetic')
   const [livePrice, setLivePrice] = useState<number|null>(null)
+  const [dataLimitNote, setDataLimitNote] = useState<string|undefined>(undefined)
+
+  // For now everyone gets pro data — when you enable billing, pass isPro from useFeature
+  const isPro = true
 
   // ── All refs — no stale closures ──────────────────────────────────────────
   const mainRef  = useRef<HTMLDivElement>(null)
@@ -585,16 +589,18 @@ export default function Replay() {
     setLoading(true)
     setCurBar(null)
     setLivePrice(null)
+    setDataLimitNote(undefined)
 
     // Fetch live current price in parallel with historical candles
     const [result, lp] = await Promise.all([
-      fetchCandles(newSym, newTf, genCandles),
+      fetchCandles(newSym, newTf, genCandles, isPro),
       fetchLiveQuote(newSym),
     ])
     setLivePrice(lp)
 
     const fresh = result.data
     setDataSource(result.source)
+    setDataLimitNote(result.dataLimitNote)
     setLoading(false)
 
     const n = Math.floor(fresh.length * 0.5)
@@ -752,6 +758,13 @@ export default function Replay() {
         }
 
         <div className="flex-1"/>
+
+        {/* Data limit note — shown for free users */}
+        {dataLimitNote && (
+          <span className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 rounded max-w-xs truncate" title={dataLimitNote}>
+            ⚠ {dataLimitNote.split('.')[0]}
+          </span>
+        )}
 
         {/* Bar counter + reload */}
         <span className="text-[10px] text-gray-400 font-mono">{ph}/{total}</span>

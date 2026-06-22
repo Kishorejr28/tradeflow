@@ -235,7 +235,7 @@ export default function PracticeMode({initialSymbol,onClose}:{initialSymbol:stri
     setPlaying(false)
     setLoading(true)
     setCurBar(null)
-    const result = await fetchCandles(s, t, genCandles)
+    const result = await fetchCandles(s, t, genCandles, true) // pro=true during early access
     const fresh = result.data
     setDataSource(result.source)
     setLoading(false)
