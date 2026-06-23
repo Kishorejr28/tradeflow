@@ -448,7 +448,7 @@ const TICKERS = ['AAPL','NVDA','TSLA','BTCUSD','EURUSD','XAUUSD','SPX500','RELIA
 
 function MarqueeTicker() {
   return (
-    <div className="relative overflow-hidden py-4 border-y border-white/5 bg-white/1">
+    <div className="relative overflow-hidden py-3 border-y border-white/5 bg-white/1">
       <motion.div
         className="flex gap-8 whitespace-nowrap"
         animate={{ x: ['0%', '-50%'] }}
@@ -531,7 +531,7 @@ export default function PremiumLandingPage() {
       </motion.nav>
 
       {/* ── HERO ─────────────────────────────────────────────────────────────── */}
-      <section className="relative min-h-screen flex items-center pt-16 overflow-hidden">
+      <section className="relative flex items-center pt-16 overflow-hidden">
         {/* Multi-layer background glows */}
         <div className="absolute inset-0 pointer-events-none">
           <motion.div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[1100px] h-[600px] rounded-full"
@@ -546,21 +546,21 @@ export default function PremiumLandingPage() {
         </div>
         <Particles count={30}/>
 
-        <div className="max-w-7xl mx-auto px-6 w-full grid lg:grid-cols-2 gap-20 items-center py-20 relative z-10">
+        <div className="max-w-7xl mx-auto px-6 w-full grid lg:grid-cols-2 gap-12 items-center py-14 relative z-10">
           {/* Left */}
           <motion.div style={{ y: heroY, opacity: heroOpacity, scale: heroScale }}>
             <Reveal>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-purple-500/30 bg-purple-500/8 text-purple-300 text-xs font-semibold mb-10 tracking-wide">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-purple-500/30 bg-purple-500/8 text-purple-300 text-xs font-semibold mb-5 tracking-wide">
                 <Zap className="w-3 h-3 fill-purple-400 text-purple-400"/>
                 FREE alternative to FXReplay · No credit card
               </div>
             </Reveal>
 
-            <div className="mb-8 overflow-hidden">
+            <div className="mb-5 overflow-hidden">
               <motion.h1
                 initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 1, delay: 0.15, ease: EASE_OUT }}
-                className="text-6xl lg:text-8xl font-black tracking-tight leading-[0.92] mb-3">
+                className="text-7xl lg:text-[9rem] font-black tracking-tighter leading-[0.86] mb-4">
                 <span className="block text-white">Practice</span>
                 <span className="block bg-gradient-to-r from-purple-400 via-violet-400 to-blue-400 bg-clip-text text-transparent">
                   trading.
@@ -573,7 +573,7 @@ export default function PremiumLandingPage() {
             </div>
 
             <Reveal delay={0.3}>
-              <p className="text-xl text-gray-400 max-w-lg leading-relaxed mb-10">
+              <p className="text-xl text-gray-400 max-w-lg leading-relaxed mb-7">
                 Chart replay on real market data. Journal. Edge plans. Meditation.
                 Everything a serious trader needs — in one beautiful platform.
               </p>
@@ -600,7 +600,7 @@ export default function PremiumLandingPage() {
             </Reveal>
 
             <Reveal delay={0.55}>
-              <div className="grid grid-cols-3 gap-8 mt-14 pt-10 border-t border-white/5">
+              <div className="grid grid-cols-3 gap-6 mt-10 pt-8 border-t border-white/5">
                 {[{ n: 150, s: '+', l: 'Instruments' }, { n: 10, s: 'y+', l: 'Data depth' }, { n: 7, s: '', l: 'Asset classes' }].map(s => (
                   <div key={s.l}>
                     <p className="text-4xl font-black bg-gradient-to-r from-purple-300 to-blue-300 bg-clip-text text-transparent">{s.n}{s.s}</p>
@@ -646,7 +646,7 @@ export default function PremiumLandingPage() {
       {/* ── Feature sections (Apple-style: big scroll reveals) ────────────────── */}
       <section id="features">
         {FEATURE_SECTIONS.map((sec, idx) => (
-          <div key={sec.tag} className="relative min-h-screen flex items-center py-32 px-6 overflow-hidden">
+          <div key={sec.tag} className="relative flex items-center py-16 px-6 overflow-hidden">
             {/* Alternating bg glow */}
             <div className="absolute inset-0 pointer-events-none">
               <div className={`absolute w-[600px] h-[400px] blur-[120px] rounded-full ${
@@ -654,7 +654,7 @@ export default function PremiumLandingPage() {
               }`}/>
             </div>
 
-            <div className="max-w-7xl mx-auto w-full grid lg:grid-cols-2 gap-20 items-center">
+            <div className="max-w-7xl mx-auto w-full grid lg:grid-cols-2 gap-12 items-center">
               {/* Text — alternates left/right */}
               <div className={idx % 2 === 1 ? 'lg:order-2' : ''}>
                 <Reveal delay={0.1}>
@@ -679,10 +679,10 @@ export default function PremiumLandingPage() {
                 </div>
 
                 <Reveal delay={0.2}>
-                  <p className="text-gray-400 text-lg leading-relaxed mb-8">{sec.body}</p>
+                  <p className="text-gray-400 text-xl leading-relaxed mb-6">{sec.body}</p>
                 </Reveal>
 
-                <ul className="space-y-3 mb-10">
+                <ul className="space-y-2.5 mb-6">
                   {sec.bullets.map((b, i) => (
                     <motion.li key={i}
                       initial={{ opacity: 0, x: -25 }}
@@ -730,12 +730,12 @@ export default function PremiumLandingPage() {
       </section>
 
       {/* ── Markets ───────────────────────────────────────────────────────────── */}
-      <section id="markets" className="py-32 px-6 relative overflow-hidden">
+      <section id="markets" className="py-16 px-6 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-blue-600/6 blur-[120px] rounded-full"/>
         </div>
         <div className="max-w-7xl mx-auto relative">
-          <div className="text-center mb-20">
+          <div className="text-center mb-10">
             <Reveal>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/8 text-emerald-300 text-xs font-semibold mb-6">
                 <Globe className="w-3 h-3"/> Every market in the world
@@ -789,9 +789,9 @@ export default function PremiumLandingPage() {
       </section>
 
       {/* ── Social proof ─────────────────────────────────────────────────────── */}
-      <section className="py-32 px-6">
+      <section className="py-16 px-6">
         <div className="max-w-7xl mx-auto">
-          <Reveal className="text-center mb-16">
+          <Reveal className="text-center mb-8">
             <h2 className="text-5xl font-black text-white">Traders love it</h2>
           </Reveal>
           <div className="grid md:grid-cols-3 gap-6">
@@ -824,14 +824,14 @@ export default function PremiumLandingPage() {
       </section>
 
       {/* ── Pricing ───────────────────────────────────────────────────────────── */}
-      <section id="pricing" className="py-32 px-6 relative overflow-hidden">
+      <section id="pricing" className="py-16 px-6 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-purple-600/8 blur-[120px] rounded-full"/>
         </div>
         <div className="max-w-5xl mx-auto relative">
-          <div className="text-center mb-16">
+          <div className="text-center mb-8">
             <Reveal><h2 className="text-5xl lg:text-6xl font-black text-white mb-4">Simple, honest pricing</h2></Reveal>
-            <Reveal delay={0.1}><p className="text-gray-400 text-lg mb-8">Start free. Upgrade when you're serious.</p></Reveal>
+            <Reveal delay={0.1}><p className="text-gray-400 text-xl mb-5">Start free. Upgrade when you're serious.</p></Reveal>
             <Reveal delay={0.15}>
               <div className="inline-flex items-center gap-1 bg-white/4 border border-white/10 rounded-2xl p-1.5">
                 {(['USD','EUR','INR'] as const).map(c => (
@@ -855,7 +855,7 @@ export default function PremiumLandingPage() {
                 </div>
                 <div className="text-6xl font-black text-white mb-2">Free</div>
                 <div className="text-gray-600 text-sm mb-8">Forever. No card needed.</div>
-                <ul className="space-y-3.5 mb-8">
+                <ul className="space-y-2.5 mb-6">
                   {['5 journal entries/day','Chart replay (150+ instruments)','3 edge plans','Economic calendar','$100k demo account','Sanctuary meditation'].map(f=>(
                     <li key={f} className="flex items-center gap-3 text-sm text-gray-400">
                       <Check className="w-4 h-4 text-emerald-500 shrink-0"/>{f}
@@ -919,7 +919,7 @@ export default function PremiumLandingPage() {
       </section>
 
       {/* ── Final CTA ─────────────────────────────────────────────────────────── */}
-      <section className="py-40 px-6 relative overflow-hidden">
+      <section className="py-20 px-6 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
           <motion.div
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[600px] rounded-full"
@@ -939,7 +939,7 @@ export default function PremiumLandingPage() {
                 Start backtesting.
               </span>
             </h2>
-            <p className="text-gray-400 text-xl max-w-2xl mx-auto mb-12 leading-relaxed">
+            <p className="text-gray-400 text-xl max-w-2xl mx-auto mb-8 leading-relaxed">
               Your strategy shouldn't be tested with real money. Use TradeFlow to build confidence before you risk a single rupee, dollar or euro.
             </p>
             <div className="flex flex-col sm:flex-row gap-5 justify-center">
