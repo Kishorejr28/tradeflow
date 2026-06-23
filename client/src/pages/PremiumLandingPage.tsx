@@ -494,8 +494,8 @@ export default function PremiumLandingPage() {
       <motion.nav
         initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.7, ease: EASE_OUT }}
-        className="fixed top-0 inset-x-0 z-50 border-b border-white/5 bg-[#070714]/70 backdrop-blur-2xl">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        className="fixed top-0 inset-x-0 z-50 border-b border-white/8 bg-[#070714]/95 backdrop-blur-2xl">
+        <div className="w-full px-8 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <motion.div whileHover={{ rotate: 10, scale: 1.1 }}
               className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
@@ -534,7 +534,7 @@ export default function PremiumLandingPage() {
       </motion.nav>
 
       {/* ── HERO ─────────────────────────────────────────────────────────────── */}
-      <section className="relative flex items-center pt-16 overflow-hidden">
+      <section className="relative flex items-center pt-20 overflow-hidden">
         {/* Multi-layer background glows */}
         <div className="absolute inset-0 pointer-events-none">
           <motion.div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[1100px] h-[600px] rounded-full"
@@ -559,11 +559,11 @@ export default function PremiumLandingPage() {
               </div>
             </Reveal>
 
-            <div className="mb-5 overflow-hidden">
+            <div className="mb-5">
               <motion.h1
                 initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 1, delay: 0.15, ease: EASE_OUT }}
-                className="text-6xl lg:text-[7.5rem] font-black tracking-tighter leading-[0.9] mb-4">
+                className="text-6xl lg:text-[7.5rem] font-black tracking-tighter leading-[1.05] mb-4 pb-2">
                 <span className="block text-white">Practice</span>
                 <span className="block bg-gradient-to-r from-purple-400 via-violet-400 to-blue-400 bg-clip-text text-transparent">
                   trading.
