@@ -6,6 +6,7 @@ import { getUserPlan } from '@/lib/adminApi'
 import Layout from '@/components/layout/Layout'
 import AuthPage from '@/pages/AuthPage'
 import LandingPage from '@/pages/LandingPage'
+import PremiumLandingPage from '@/pages/PremiumLandingPage'
 import Dashboard from '@/pages/Dashboard'
 import Trading from '@/pages/Trading'
 import Replay from '@/pages/Replay'
@@ -122,7 +123,7 @@ export default function App() {
     <BrowserRouter>
       <AuthHandler />
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={<PremiumLandingPage />} />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/app" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route index element={<Navigate to="/app/dashboard" replace />} />
