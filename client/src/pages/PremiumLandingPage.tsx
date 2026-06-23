@@ -495,36 +495,36 @@ export default function PremiumLandingPage() {
         initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.7, ease: EASE_OUT }}
         className="fixed top-0 inset-x-0 z-50 border-b border-white/8 bg-[#070714]/95 backdrop-blur-2xl">
-        <div className="w-full px-8 h-20 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-8 h-18 flex items-center justify-between" style={{height:'72px'}}>
           <div className="flex items-center gap-3">
             <motion.div whileHover={{ rotate: 10, scale: 1.1 }}
-              className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
-              <TrendingUp className="w-4 h-4 text-white"/>
+              className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
+              <TrendingUp className="w-5 h-5 text-white"/>
             </motion.div>
-            <span className="font-black text-lg">TradeFlow</span>
+            <span className="font-black text-xl">TradeFlow</span>
           </div>
-          <div className="hidden md:flex items-center gap-8 text-sm text-gray-500">
+          <div className="hidden md:flex items-center gap-10 text-base text-gray-400">
             {['Features','Markets','Pricing'].map(item => (
               <a key={item} href={`#${item.toLowerCase()}`}
-                className="hover:text-white transition-colors duration-200">{item}</a>
+                className="hover:text-white transition-colors duration-200 font-medium">{item}</a>
             ))}
           </div>
           <div className="flex items-center gap-3">
             {isLoggedIn ? (
               <>
-                <button onClick={goToAuth} className="text-sm text-gray-500 hover:text-white transition">Sign in</button>
+                <button onClick={goToAuth} className="text-base text-gray-400 hover:text-white transition font-medium">Sign in</button>
                 <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                   onClick={() => navigate('/app/dashboard')}
-                  className="px-5 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-purple-500/25">
+                  className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-base font-bold rounded-xl shadow-lg shadow-purple-500/25">
                   Dashboard →
                 </motion.button>
               </>
             ) : (
               <>
-                <button onClick={goToAuth} className="text-sm text-gray-500 hover:text-white transition">Sign in</button>
+                <button onClick={goToAuth} className="text-base text-gray-400 hover:text-white transition font-medium">Sign in</button>
                 <motion.button whileHover={{ scale: 1.04, boxShadow: '0 0 30px rgba(139,92,246,0.4)' }} whileTap={{ scale: 0.96 }}
                   onClick={goToAuth}
-                  className="px-5 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-purple-500/25">
+                  className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-base font-bold rounded-xl shadow-lg shadow-purple-500/25">
                   Get started free
                 </motion.button>
               </>
