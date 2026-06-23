@@ -560,7 +560,7 @@ export default function PremiumLandingPage() {
               <motion.h1
                 initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 1, delay: 0.15, ease: EASE_OUT }}
-                className="text-7xl lg:text-[9rem] font-black tracking-tighter leading-[0.86] mb-4">
+                className="text-5xl lg:text-7xl font-black tracking-tighter leading-[0.9] mb-4">
                 <span className="block text-white">Practice</span>
                 <span className="block bg-gradient-to-r from-purple-400 via-violet-400 to-blue-400 bg-clip-text text-transparent">
                   trading.
