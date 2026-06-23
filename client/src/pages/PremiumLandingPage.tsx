@@ -511,11 +511,14 @@ export default function PremiumLandingPage() {
           </div>
           <div className="flex items-center gap-3">
             {isLoggedIn ? (
-              <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
-                onClick={() => navigate('/app/dashboard')}
-                className="px-5 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-purple-500/25">
-                Dashboard →
-              </motion.button>
+              <>
+                <button onClick={goToAuth} className="text-sm text-gray-500 hover:text-white transition">Sign in</button>
+                <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+                  onClick={() => navigate('/app/dashboard')}
+                  className="px-5 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-purple-500/25">
+                  Dashboard →
+                </motion.button>
+              </>
             ) : (
               <>
                 <button onClick={goToAuth} className="text-sm text-gray-500 hover:text-white transition">Sign in</button>
@@ -560,7 +563,7 @@ export default function PremiumLandingPage() {
               <motion.h1
                 initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
                 transition={{ duration: 1, delay: 0.15, ease: EASE_OUT }}
-                className="text-5xl lg:text-7xl font-black tracking-tighter leading-[0.9] mb-4">
+                className="text-6xl lg:text-[7.5rem] font-black tracking-tighter leading-[0.9] mb-4">
                 <span className="block text-white">Practice</span>
                 <span className="block bg-gradient-to-r from-purple-400 via-violet-400 to-blue-400 bg-clip-text text-transparent">
                   trading.
@@ -646,7 +649,7 @@ export default function PremiumLandingPage() {
       {/* ── Feature sections (Apple-style: big scroll reveals) ────────────────── */}
       <section id="features">
         {FEATURE_SECTIONS.map((sec, idx) => (
-          <div key={sec.tag} className="relative flex items-center py-16 px-6 overflow-hidden">
+          <div key={sec.tag} className="relative flex items-center py-20 px-6 overflow-hidden scroll-mt-16">
             {/* Alternating bg glow */}
             <div className="absolute inset-0 pointer-events-none">
               <div className={`absolute w-[600px] h-[400px] blur-[120px] rounded-full ${
@@ -730,7 +733,7 @@ export default function PremiumLandingPage() {
       </section>
 
       {/* ── Markets ───────────────────────────────────────────────────────────── */}
-      <section id="markets" className="py-16 px-6 relative overflow-hidden">
+      <section id="markets" className="py-20 px-6 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-blue-600/6 blur-[120px] rounded-full"/>
         </div>
@@ -789,7 +792,7 @@ export default function PremiumLandingPage() {
       </section>
 
       {/* ── Social proof ─────────────────────────────────────────────────────── */}
-      <section className="py-16 px-6">
+      <section className="py-20 px-6">
         <div className="max-w-7xl mx-auto">
           <Reveal className="text-center mb-8">
             <h2 className="text-5xl font-black text-white">Traders love it</h2>
@@ -824,7 +827,7 @@ export default function PremiumLandingPage() {
       </section>
 
       {/* ── Pricing ───────────────────────────────────────────────────────────── */}
-      <section id="pricing" className="py-16 px-6 relative overflow-hidden">
+      <section id="pricing" className="py-20 px-6 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-purple-600/8 blur-[120px] rounded-full"/>
         </div>
