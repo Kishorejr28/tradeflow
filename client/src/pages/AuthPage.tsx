@@ -288,37 +288,6 @@ export default function AuthPage() {
             Continue as Demo User
           </button>
 
-          {/* Quick login shortcuts — always visible */}
-          <details className="mt-3">
-            <summary className="text-[11px] text-gray-400 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition select-none">
-              🔑 Quick login shortcuts
-            </summary>
-            <div className="mt-2 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden text-[11px]">
-              {[
-                { label:'🪙 Trader account', email:'trader',  pw:'Trader@123',     note:'Free plan' },
-                { label:'🥇 Pro account',    email:'pro',     pw:'ProUser@123',    note:'Edge Pro plan' },
-                { label:'⚡ Admin',          email:'kishore', pw:'TradeFlow@2026', note:'Admin panel' },
-              ].map((row, i) => (
-                <button key={i} type="button"
-                  onClick={() => {
-                    const cred = checkLocalCredentials(row.email, row.pw)
-                    if (cred) {
-                      setUser({ id: cred.id, email: row.email, full_name: cred.name, timezone: 'UTC', account_currency: 'USD', created_at: new Date().toISOString() })
-                      setUserPlan(cred.plan)
-                      navigate(cred.dest)
-                    }
-                  }}
-                  className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition border-b last:border-0 border-gray-100 dark:border-gray-700 text-left">
-                  <div>
-                    <span className="font-semibold text-gray-700 dark:text-gray-300">{row.label}</span>
-                    <span className="text-gray-400 ml-2">pw: <span className="font-mono">{row.pw}</span></span>
-                  </div>
-                  <span className="text-gray-400 shrink-0">{row.note} →</span>
-                </button>
-              ))}
-            </div>
-          </details>
-
           {!hasSupabaseConfig && (
             <p className="text-center text-[11px] text-amber-500 mt-3">
               No Supabase project connected — login/signup disabled
