@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAppStore, PLAN_NAMES, PLAN_COLORS } from '@/store/appStore'
+import UpgradeModal from '@/components/ui/UpgradeModal'
 
 const NAV = [
   { to: '/app/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -20,6 +21,7 @@ const NAV = [
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
+  const [showUpgrade, setShowUpgrade] = useState(false)
   const { theme, setTheme, user, userPlan, signOut } = useAppStore()
   const navigate = useNavigate()
 
@@ -33,6 +35,8 @@ export default function Sidebar() {
   const isPro     = userPlan === 'pro' || userPlan === 'admin'
 
   return (
+    <>
+    {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
     <aside className={`${collapsed ? 'w-16' : 'w-56'} flex flex-col h-full bg-white dark:bg-[#141414] border-r border-gray-100 dark:border-gray-800/60 transition-all duration-200 shrink-0`}>
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-4 py-5 border-b border-gray-100 dark:border-gray-800/60">
@@ -145,11 +149,10 @@ export default function Sidebar() {
               href="/"
               onClick={e => {
                 e.preventDefault()
-                // Navigate to landing page pricing section
-                window.location.href = '/#pricing'
+                setShowUpgrade(true)
               }}
               className="flex items-center justify-center gap-1 w-full py-1.5 rounded-lg bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-white text-[11px] font-semibold transition shadow-sm">
-              🥇 See plans <ArrowRight className="w-2.5 h-2.5"/>
+              🥇 Upgrade to Pro <ArrowRight className="w-2.5 h-2.5"/>
             </a>
           </div>
         )}
@@ -162,5 +165,6 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
+    </>
   )
 }
