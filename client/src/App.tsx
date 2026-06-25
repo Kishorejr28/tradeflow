@@ -62,15 +62,14 @@ function AuthHandler() {
 
     if (!seenTutorial[supaUser.id]) setShowTutorial(true)
 
-    // Only redirect to dashboard on explicit sign-in, NOT on page refresh
-    // On refresh, stay on whatever page the user was on
+    // Only redirect to dashboard on explicit sign-in event
+    // NEVER redirect when just restoring session on page load/refresh
     if (event === 'SIGNED_IN') {
-      if (location.pathname === '/' || location.pathname === '/auth') {
+      // Only redirect away from auth page, never from landing page
+      if (location.pathname === '/auth') {
         navigate('/app/dashboard', { replace: true })
       }
-      // If already on an /app/* page, stay there
     }
-    // No event = getSession on load = stay on current page
   }
 
   useEffect(() => {
@@ -83,9 +82,10 @@ function AuthHandler() {
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
         if (session?.user) {
-          // Restore session on refresh — navigate to dashboard if on auth/root page
-          const isAuthPage = location.pathname === '/' || location.pathname === '/auth'
-          applySession(session.user, isAuthPage ? 'SIGNED_IN' : undefined)
+          // On refresh: restore session silently, never redirect
+          // Only redirect if user explicitly navigated to /auth
+          const onAuthPage = location.pathname === '/auth'
+          applySession(session.user, onAuthPage ? 'SIGNED_IN' : undefined)
         }
       })
       .catch(() => {})
