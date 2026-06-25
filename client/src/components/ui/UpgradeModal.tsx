@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { X, Check, Crown, Sparkles, ArrowRight, Lock, Mail } from 'lucide-react'
 import { supabase, hasSupabaseConfig } from '@/lib/supabase'
 import { useAppStore } from '@/store/appStore'
+import { sendWaitlistConfirmation } from '@/lib/email'
 
 const FREE_FEATURES = [
   '5 journal entries per day',
@@ -61,6 +62,14 @@ export default function UpgradeModal({ onClose }: UpgradeModalProps) {
           plan_interest: `pro-${billing}-${currency}`,
         })
       }
+      // Send premium confirmation email
+      await sendWaitlistConfirmation({
+        to: email,
+        name: name || undefined,
+        plan: 'pro',
+        currency,
+        billing,
+      })
       setDone(true)
     } catch {
       setError('Something went wrong — please try again.')
