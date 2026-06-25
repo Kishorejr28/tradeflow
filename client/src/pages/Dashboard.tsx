@@ -399,13 +399,14 @@ function ProFreeBanner() {
 export default function Dashboard() {
   const isDemo = useIsDemo()
   const user = useAppStore((s) => s.user)
-  const { setShowTutorial, addLocalTrade, localTrades, seenTutorial } = useAppStore()
+  const { setShowTutorial, markTutorialSeen, addLocalTrade, localTrades, seenTutorial } = useAppStore()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [showAddTrade, setShowAddTrade] = useState(false)
   const [showTour, setShowTour] = useState(false)
   const [greetingDismissed, setGreetingDismissed] = useState(false)
 
-  const isFirstTime = !isDemo && user && !seenTutorial[user.id]
+  // Only truly first time: real user, not demo, never seen tour before
+  const isFirstTime = !isDemo && !!user && user.id !== 'demo' && !seenTutorial[user.id]
 
   // Auto-show tour for first-time real users
   useEffect(() => {
@@ -474,7 +475,11 @@ export default function Dashboard() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {showAddTrade && <AddTradeModal onSave={handleAddTrade} onClose={() => setShowAddTrade(false)} />}
-      {showTour && <FeatureTour onClose={() => { setShowTour(false); setShowTutorial(false) }} />}
+      {showTour && <FeatureTour onClose={() => {
+        setShowTour(false)
+        setShowTutorial(false)
+        if (user) markTutorialSeen(user.id) // permanently mark as seen
+      }} />}
 
       {/* ── Welcome / Motivational banner ── */}
       {!greetingDismissed && !isDemo && (() => {
