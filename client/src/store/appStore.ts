@@ -103,6 +103,7 @@ export const useAppStore = create<AppState>()(
         localTrades: state.localTrades,
         localNotes: state.localNotes,
         userPlan: state.userPlan,
+        user: state.user,       // persist session so refresh stays logged in
       }),
       onRehydrateStorage: () => (state) => {
         if (state?.theme === 'dark') document.documentElement.classList.add('dark')
