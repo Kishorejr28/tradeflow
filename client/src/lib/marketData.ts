@@ -90,24 +90,14 @@ const YF_RANGE_MAX: Record<string, string> = {
   '1D':  '10y',
 }
 
-// How many candles we give to free users (roughly 6 months)
-const FREE_CANDLE_LIMITS: Record<string, number> = {
-  '1m':  3000,   // ~5 trading days × 390min  ← 1m limited to 7d anyway
-  '5m':  3500,   // ~6 months × 390/5
-  '15m': 2000,   // ~6 months × 390/15 per day
-  '1h':  1100,   // ~6 months × 6.5h/day × 21 days
-  '4h':  400,    // ~6 months in 4h bars
-  '1D':  130,    // ~6 months of daily bars
-}
-
-// Pro users get the full dataset
-const PRO_CANDLE_LIMITS: Record<string, number> = {
-  '1m':  99999,
-  '5m':  99999,
-  '15m': 99999,
-  '1h':  5000,   // ~2 years of hourly data
-  '4h':  1300,   // ~2 years in 4h bars
-  '1D':  750,    // ~3 years of daily
+// All users get 2 years of data — no artificial free/pro split on data depth
+const CANDLE_LIMITS: Record<string, number> = {
+  '1m':  3000,    // limited by Yahoo (7d max for 1m anyway)
+  '5m':  99999,   // ~2 years
+  '15m': 99999,   // ~2 years
+  '1h':  5000,    // ~2 years hourly
+  '4h':  1300,    // ~2 years in 4h bars
+  '1D':  750,     // ~3 years of daily bars
 }
 
 // ── Resolve any user-typed symbol to a Yahoo ticker ───────────────────────────
@@ -309,25 +299,8 @@ export async function fetchCandles(
   }
 
   const totalCandles = fullData.length
-  const limit = isPro
-    ? (PRO_CANDLE_LIMITS[tf] ?? 99999)
-    : (FREE_CANDLE_LIMITS[tf] ?? 130)
-
+  const limit = CANDLE_LIMITS[tf] ?? 750
   const sliced = fullData.slice(-Math.min(limit, totalCandles))
-
-  const freeLimit  = FREE_CANDLE_LIMITS[tf] ?? 130
-  const proLimit   = PRO_CANDLE_LIMITS[tf] ?? 99999
-  const lockedMore = !isPro && totalCandles > freeLimit
-
-  const tfLabel: Record<string, string> = {
-    '1m':'1 min','5m':'5 min','15m':'15 min','1h':'1 hour','4h':'4 hour','1D':'daily',
-  }
-  const approxFreeTime: Record<string, string> = {
-    '1m':'5 days','5m':'2 months','15m':'2 months','1h':'6 months','4h':'6 months','1D':'6 months',
-  }
-  const approxProTime: Record<string, string> = {
-    '1m':'5 days','5m':'2 months','15m':'2 months','1h':'2 years','4h':'2 years','1D':'3 years',
-  }
 
   return {
     data: sliced,
@@ -335,29 +308,6 @@ export async function fetchCandles(
     symbol: sym,
     totalCandles,
     isPro,
-    dataLimitNote: lockedMore
-      ? `Free plan: ~${approxFreeTime[tf]} of ${tfLabel[tf]} data (${sliced.length} bars). Upgrade to Pro for ~${approxProTime[tf]} (${Math.min(proLimit, totalCandles)} bars).`
-      : undefined,
+    dataLimitNote: undefined,
   }
 }
-
-export function clearCache(sym?: string) {
-  if (sym) { for (const k of CACHE.keys()) { if (k.startsWith(sym)) CACHE.delete(k) } }
-  else CACHE.clear()
-}
-
-// ── Market exchange reference for the search UI ───────────────────────────────
-export const MARKET_SUFFIXES = [
-  { flag:'🇮🇳', name:'India (NSE)',     suffix:'.NS', example:'RELIANCE.NS' },
-  { flag:'🇩🇪', name:'Germany (XETRA)', suffix:'.DE', example:'SAP.DE' },
-  { flag:'🇬🇧', name:'UK (LSE)',         suffix:'.L',  example:'SHEL.L' },
-  { flag:'🇯🇵', name:'Japan (TSE)',      suffix:'.T',  example:'7203.T' },
-  { flag:'🇭🇰', name:'Hong Kong (HKEx)',suffix:'.HK', example:'0700.HK' },
-  { flag:'🇦🇺', name:'Australia (ASX)', suffix:'.AX', example:'BHP.AX' },
-  { flag:'🇨🇦', name:'Canada (TSX)',     suffix:'.TO', example:'RY.TO' },
-  { flag:'🇫🇷', name:'France (Euronext)',suffix:'.PA', example:'MC.PA' },
-  { flag:'🇪🇸', name:'Spain (BME)',      suffix:'.MC', example:'ITX.MC' },
-  { flag:'🇰🇷', name:'Korea (KRX)',      suffix:'.KS', example:'005930.KS' },
-  { flag:'🇧🇷', name:'Brazil (B3)',      suffix:'.SA', example:'VALE3.SA' },
-  { flag:'🇺🇸', name:'USA (NASDAQ/NYSE)',suffix:'',    example:'AAPL' },
-]

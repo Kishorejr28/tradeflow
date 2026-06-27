@@ -173,14 +173,25 @@ const TIMEFRAMES = ['1m','5m','15m','1h','4h','1D']
 const SPEEDS = [1,2,4,8,16,32]
 
 export function assetDp(sym: string) {
-  if (['USDJPY','GBPJPY','EURJPY','AUDJPY','CADJPY','NZDJPY','CHFJPY'].includes(sym)) return 2
-  if (['XAUUSD','XAGUSD','XRPUSD','ADAUSD','DOTUSD','AVAXUSD','XLMUSD',
-       'MATICUSD','LINKUSD','UNIUSD','ATOMUSD','NEARUSD','APTUSD','ARBUSD','6J'].includes(sym)) return 4
+  // JPY pairs — 3 decimal places
+  if (['USDJPY','GBPJPY','EURJPY','AUDJPY','CADJPY','NZDJPY','CHFJPY'].includes(sym)) return 3
+  // Crypto with tiny prices
+  if (['XRPUSD','ADAUSD','DOTUSD','XLMUSD','MATICUSD','ALGOUSD'].includes(sym)) return 5
+  // Crypto mid-range
+  if (['AVAXUSD','LINKUSD','UNIUSD','ATOMUSD','NEARUSD','APTUSD','ARBUSD'].includes(sym)) return 4
+  // Large crypto / indices / commodities — 0-2 dp
   if (['BTCUSD','ETHUSD','SOLUSD','BNBUSD','LTCUSD','BCHUSD',
        'SPX500','NDX100','DJ30','RUT2000','DAX40','FTSE100','CAC40','NIKKEI',
        'ASX200','HSI','IBEX35','SMI','AEX','OMX','KOSPI',
-       'ES','NQ','YM','RTY','GC','COCOA','REGN','VRTX',
-       'WHEAT','CORN','SOYBEAN','COFFEE'].includes(sym)) return 0
+       'ES','NQ','YM','RTY','COCOA','REGN','VRTX','WHEAT','CORN','SOYBEAN','COFFEE'].includes(sym)) return 0
+  // Stocks, Gold, Oil, ETFs — 2 dp
+  if (['XAUUSD','XAGUSD','USOIL','UKOIL','NATGAS','COPPER','SUGAR',
+       'AAPL','TSLA','NVDA','MSFT','AMZN','META','GOOGL','AMD','NFLX','JPM',
+       'BAC','WFC','GS','MS','V','MA','SPY','QQQ','IWM','GLD','GC','SI','CL','NG',
+       'RELIANCE.NS','TCS.NS','INFY.NS','SAP.DE','BMW.DE','SHEL.L'].includes(sym)) return 2
+  // Forex majors/minors — 5 decimal places (standard pip precision)
+  if (sym.endsWith('=X') || /^[A-Z]{6}$/.test(sym) || sym.includes('USD') || sym.includes('EUR') ||
+      sym.includes('GBP') || sym.includes('AUD') || sym.includes('CAD') || sym.includes('CHF') || sym.includes('NZD')) return 5
   return 2
 }
 
