@@ -195,7 +195,7 @@ export function assetDp(sym: string) {
   return 2
 }
 
-export function genCandles(sym: string, tf: string, n = 600): OHLCV[] {
+export function genCandles(sym: string, tf: string, n = 1000): OHLCV[] {
   const base = BASE_PRICE[sym] ?? 100
   const vol  = VOL[sym] ?? 0.01
   const sec  = TF_SEC[tf] ?? 900
