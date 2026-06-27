@@ -499,6 +499,7 @@ export default function Replay() {
   // These refs hold the live values — avoids ALL stale closure bugs
   const dataRef    = useRef<OHLCV[]>([])
   const phRef      = useRef(300)
+  const symRef     = useRef('EURUSD')
   const playRef    = useRef(false)
   const speedRef   = useRef(1)
   const scissorRef = useRef(false)
@@ -511,6 +512,7 @@ export default function Replay() {
 
   // Keep refs in sync
   useEffect(()=>{phRef.current=ph},[ph])
+  useEffect(()=>{symRef.current=sym},[sym])
   useEffect(()=>{playRef.current=playing},[playing])
   useEffect(()=>{speedRef.current=speed},[speed])
   useEffect(()=>{scissorRef.current=scissor},[scissor])
@@ -531,6 +533,13 @@ export default function Replay() {
     if (!csR.current || !d.length) return
     const v = d.slice(0, n)
     if (!v.length) return
+
+    // Apply correct price format to the chart axis based on symbol
+    const dp = assetDp(symRef.current)
+    const minMove = dp === 5 ? 0.00001 : dp === 4 ? 0.0001 : dp === 3 ? 0.001 : dp === 2 ? 0.01 : 1
+    csR.current.applyOptions({
+      priceFormat: { type: 'price', precision: dp, minMove },
+    })
 
     csR.current.setData(v)
     setCurBar(v[v.length-1])
@@ -570,7 +579,11 @@ export default function Replay() {
     const chart = createChart(mainRef.current,{...base,width:mainRef.current.clientWidth,height:mainRef.current.clientHeight})
     chartRef.current = chart
 
-    csR.current = chart.addCandlestickSeries({upColor:'#22c55e',downColor:'#ef4444',borderUpColor:'#22c55e',borderDownColor:'#ef4444',wickUpColor:'#22c55e',wickDownColor:'#ef4444'})
+    csR.current = chart.addCandlestickSeries({
+      upColor:'#22c55e',downColor:'#ef4444',
+      borderUpColor:'#22c55e',borderDownColor:'#ef4444',
+      wickUpColor:'#22c55e',wickDownColor:'#ef4444',
+    })
     volR.current = chart.addHistogramSeries({color:'#60a5fa',priceFormat:{type:'volume'},priceScaleId:'vol'})
     chart.priceScale('vol').applyOptions({scaleMargins:{top:0.82,bottom:0}})
     s20R.current = chart.addLineSeries({color:'#f59e0b',lineWidth:1,priceLineVisible:false,lastValueVisible:false})
