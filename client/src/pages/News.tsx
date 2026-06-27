@@ -10,65 +10,81 @@ interface Article {
   category?: string
 }
 
-// ── News sources by category & filter ─────────────────────────────────────────
-// Each filter maps to one or more RSS feeds
+// ── Keyword filters — applied AFTER fetching to ensure relevance ──────────────
+const FILTER_KEYWORDS: Record<string, string[]> = {
+  'all':         [], // no filter — show everything
+  'forex':       ['forex','currency','dollar','euro','pound','yen','usd','eur','gbp','jpy','aud','cad','chf','nzd','exchange rate','central bank','fed','ecb','boe','boj','interest rate','monetary policy','inflation','rate hike','rate cut','fx','dxy'],
+  'stocks-us':   ['nasdaq','s&p','dow jones','wall street','nyse','stock','shares','earnings','ipo','sec','fed','apple','google','microsoft','amazon','nvidia','tesla','meta','sp500'],
+  'stocks-uk':   ['ftse','london stock','uk stock','british','pound','bank of england','boe','uk economy','uk market','london','uk company','uk shares','uk inflation','uk gdp'],
+  'stocks-eu':   ['dax','cac','eurostoxx','euro','ecb','european','germany','france','eu economy','eurozone','european market','european stock'],
+  'stocks-in':   ['sensex','nifty','bse','nse','india','indian market','rbi','rupee','indian stock','mumbai','sebi','indian economy'],
+  'stocks-jp':   ['nikkei','japan','japanese','yen','boj','bank of japan','tokyo','japanese market','nikkei225','topix'],
+  'crypto':      ['bitcoin','ethereum','crypto','blockchain','btc','eth','solana','binance','coinbase','defi','nft','web3','altcoin','stablecoin','usdt','usdc','digital currency','cryptocurrency'],
+  'indices':     ['s&p 500','dow jones','nasdaq','dax','ftse','nikkei','index','indices','gdp','inflation','interest rate','central bank','fed','ecb','recession','economic growth','monetary policy','cpi','ppi','jobs report','nonfarm','unemployment'],
+  'commodities': ['gold','silver','oil','crude','brent','wti','natural gas','copper','wheat','corn','soybean','commodity','commodities','precious metal','energy','opec','iran','saudi','agriculture','lumber','coffee','sugar','cotton'],
+}
+
+function applyKeywordFilter(articles: Article[], filterKey: string): Article[] {
+  const keywords = FILTER_KEYWORDS[filterKey]
+  if (!keywords || keywords.length === 0) return articles
+  return articles.filter(a => {
+    const text = `${a.title} ${a.description}`.toLowerCase()
+    return keywords.some(kw => text.includes(kw))
+  })
+}
+
+// ── News sources ───────────────────────────────────────────────────────────────
+// All categories pull from broad reliable feeds; keyword filter does the real work
 const FILTER_SOURCES: Record<string, { label: string; feeds: { name: string; url: string }[] }> = {
-  // Top-level categories
-  'all':       { label: '🌐 All News', feeds: [
-    { name: 'BBC Business',     url: 'https://feeds.bbci.co.uk/news/business/rss.xml' },
-    { name: 'Financial Times',  url: 'https://www.ft.com/rss/home/uk' },
-    { name: 'NY Times Biz',     url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml' },
-  ]},
-
-  // Forex
-  'forex':     { label: '💱 Forex', feeds: [
-    { name: 'FX Street',        url: 'https://www.fxstreet.com/rss/news' },
-    { name: 'DailyFX',          url: 'https://www.dailyfx.com/feeds/all' },
-    { name: 'Financial Times',  url: 'https://www.ft.com/rss/home/uk' },
-  ]},
-
-  // Stocks by country
-  'stocks-us': { label: '🇺🇸 US Stocks', feeds: [
-    { name: 'NY Times Business', url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml' },
-    { name: 'NY Times Tech',     url: 'https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml' },
-    { name: 'The Guardian US',   url: 'https://www.theguardian.com/us/business/rss' },
-  ]},
-  'stocks-uk': { label: '🇬🇧 UK Stocks', feeds: [
+  'all':         { label: '🌐 All News', feeds: [
     { name: 'BBC Business',      url: 'https://feeds.bbci.co.uk/news/business/rss.xml' },
     { name: 'Financial Times',   url: 'https://www.ft.com/rss/home/uk' },
-    { name: 'The Guardian UK',   url: 'https://www.theguardian.com/business/rss' },
+    { name: 'NY Times Business', url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml' },
   ]},
-  'stocks-eu': { label: '🇪🇺 EU Stocks', feeds: [
-    { name: 'Financial Times',   url: 'https://www.ft.com/rss/home/uk' },
-    { name: 'The Guardian Biz',  url: 'https://www.theguardian.com/business/rss' },
-  ]},
-  'stocks-in': { label: '🇮🇳 India', feeds: [
-    { name: 'Economic Times Markets', url: 'https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms' },
-    { name: 'Economic Times Biz',     url: 'https://economictimes.indiatimes.com/rssfeeds/1715249553.cms' },
-  ]},
-  'stocks-jp': { label: '🇯🇵 Japan', feeds: [
-    { name: 'BBC Asia',          url: 'https://feeds.bbci.co.uk/news/world/asia/rss.xml' },
-    { name: 'Financial Times',   url: 'https://www.ft.com/rss/home/uk' },
-  ]},
-
-  // Crypto
-  'crypto':    { label: '₿ Crypto', feeds: [
-    { name: 'CoinDesk',          url: 'https://www.coindesk.com/arc/outboundfeeds/rss/' },
-    { name: 'CryptoNews',        url: 'https://cryptonews.com/news/feed/' },
-    { name: 'BBC Technology',    url: 'https://feeds.bbci.co.uk/news/technology/rss.xml' },
-  ]},
-
-  // Indices / macro
-  'indices':   { label: '📊 Indices & Macro', feeds: [
+  'forex':       { label: '💱 Forex', feeds: [
+    { name: 'BBC Business',      url: 'https://feeds.bbci.co.uk/news/business/rss.xml' },
     { name: 'Financial Times',   url: 'https://www.ft.com/rss/home/uk' },
     { name: 'NY Times Economy',  url: 'https://rss.nytimes.com/services/xml/rss/nyt/Economy.xml' },
-    { name: 'The Guardian Biz',  url: 'https://www.theguardian.com/business/rss' },
   ]},
-
-  // Commodities
+  'stocks-us':   { label: '🇺🇸 US Stocks', feeds: [
+    { name: 'NY Times Business', url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml' },
+    { name: 'NY Times Tech',     url: 'https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml' },
+    { name: 'The Guardian',      url: 'https://www.theguardian.com/business/rss' },
+  ]},
+  'stocks-uk':   { label: '🇬🇧 UK Stocks', feeds: [
+    { name: 'BBC Business',      url: 'https://feeds.bbci.co.uk/news/business/rss.xml' },
+    { name: 'Financial Times',   url: 'https://www.ft.com/rss/home/uk' },
+    { name: 'The Guardian',      url: 'https://www.theguardian.com/business/rss' },
+  ]},
+  'stocks-eu':   { label: '🇪🇺 EU Stocks', feeds: [
+    { name: 'Financial Times',   url: 'https://www.ft.com/rss/home/uk' },
+    { name: 'The Guardian',      url: 'https://www.theguardian.com/business/rss' },
+    { name: 'BBC Business',      url: 'https://feeds.bbci.co.uk/news/business/rss.xml' },
+  ]},
+  'stocks-in':   { label: '🇮🇳 India', feeds: [
+    { name: 'Economic Times Markets', url: 'https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms' },
+    { name: 'Economic Times',    url: 'https://economictimes.indiatimes.com/rssfeeds/1715249553.cms' },
+    { name: 'BBC Asia',          url: 'https://feeds.bbci.co.uk/news/world/asia/rss.xml' },
+  ]},
+  'stocks-jp':   { label: '🇯🇵 Japan', feeds: [
+    { name: 'BBC Asia',          url: 'https://feeds.bbci.co.uk/news/world/asia/rss.xml' },
+    { name: 'Financial Times',   url: 'https://www.ft.com/rss/home/uk' },
+    { name: 'BBC Business',      url: 'https://feeds.bbci.co.uk/news/business/rss.xml' },
+  ]},
+  'crypto':      { label: '₿ Crypto', feeds: [
+    { name: 'BBC Technology',    url: 'https://feeds.bbci.co.uk/news/technology/rss.xml' },
+    { name: 'NY Times Tech',     url: 'https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml' },
+    { name: 'BBC Business',      url: 'https://feeds.bbci.co.uk/news/business/rss.xml' },
+  ]},
+  'indices':     { label: '📊 Indices & Macro', feeds: [
+    { name: 'NY Times Economy',  url: 'https://rss.nytimes.com/services/xml/rss/nyt/Economy.xml' },
+    { name: 'Financial Times',   url: 'https://www.ft.com/rss/home/uk' },
+    { name: 'The Guardian',      url: 'https://www.theguardian.com/business/rss' },
+  ]},
   'commodities': { label: '🛢 Commodities', feeds: [
     { name: 'Financial Times',   url: 'https://www.ft.com/rss/home/uk' },
     { name: 'BBC Business',      url: 'https://feeds.bbci.co.uk/news/business/rss.xml' },
+    { name: 'NY Times Business', url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml' },
   ]},
 }
 
@@ -102,12 +118,24 @@ async function fetchFeed(feedUrl: string, feedName: string): Promise<Article[]> 
 async function loadFilter(filterKey: string): Promise<Article[]> {
   const config = FILTER_SOURCES[filterKey]
   if (!config) return []
-  // Try feeds in order, return first that works
+  // Fetch from all feeds for this category, merge, then keyword-filter
+  const allResults: Article[] = []
   for (const feed of config.feeds) {
     const items = await fetchFeed(feed.url, feed.name)
-    if (items.length > 0) return items
+    allResults.push(...items)
+    if (allResults.length >= 10) break // stop once we have enough to filter from
   }
-  return []
+  // Remove duplicates by title
+  const seen = new Set<string>()
+  const deduped = allResults.filter(a => {
+    const key = a.title.toLowerCase().slice(0, 50)
+    if (seen.has(key)) return false
+    seen.add(key); return true
+  })
+  // Apply keyword filter
+  const filtered = applyKeywordFilter(deduped, filterKey)
+  // If keyword filter leaves too few, fall back to showing all from that feed
+  return filtered.length >= 3 ? filtered : deduped.slice(0, 20)
 }
 
 // ── Mini calendar ─────────────────────────────────────────────────────────────
