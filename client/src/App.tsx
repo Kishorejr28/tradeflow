@@ -37,9 +37,11 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 
 function AuthHandler() {
   const { setUser, setUserPlan, setShowTutorial, seenTutorial } = useAppStore()
+  const user = useAppStore(s => s.user)
   const navigate = useNavigate()
   const location = useLocation()
-  const [loading, setLoading] = useState(true)
+  // If user already in localStorage, don't show spinner — start as not loading
+  const [loading, setLoading] = useState(!user)
 
   const applySession = async (supaUser: any, event?: string) => {
     const u = {
@@ -99,7 +101,8 @@ function AuthHandler() {
           // Silent token refresh — just update user, don't navigate
           applySession(session.user, undefined)
         }
-      } else {
+      } else if (event === 'SIGNED_OUT') {
+        // Only clear user on explicit sign-out, not on initial load
         setUser(null)
         setUserPlan('free')
       }
