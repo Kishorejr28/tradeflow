@@ -7,12 +7,12 @@ import { useAppStore } from '@/store/appStore'
 interface Article { title:string; url:string; source:string; pubDate:string; description:string; thumbnail?:string }
 
 const RSS_SOURCES = [
-  { label:'CNBC Markets',    url:'https://www.cnbc.com/id/20910258/device/rss/rss.html' },
-  { label:'CNBC Business',   url:'https://www.cnbc.com/id/10001147/device/rss/rss.html' },
   { label:'BBC Business',    url:'https://feeds.bbci.co.uk/news/business/rss.xml' },
-  { label:'CNBC Finance',    url:'https://www.cnbc.com/id/10000664/device/rss/rss.html' },
-  { label:'CNBC Technology', url:'https://www.cnbc.com/id/19854910/device/rss/rss.html' },
   { label:'The Guardian',    url:'https://www.theguardian.com/business/rss' },
+  { label:'NY Times Biz',    url:'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml' },
+  { label:'Financial Times', url:'https://www.ft.com/rss/home/uk' },
+  { label:'BBC Technology',  url:'https://feeds.bbci.co.uk/news/technology/rss.xml' },
+  { label:'BBC World',       url:'https://feeds.bbci.co.uk/news/world/rss.xml' },
 ]
 
 async function fetchNews(feedUrl: string): Promise<Article[]> {
@@ -76,7 +76,16 @@ export default function News() {
 
   const loadNews = async (idx: number) => {
     setNewsLoading(true); setArticles([])
-    setArticles(await fetchNews(RSS_SOURCES[idx].url))
+    // Try selected source first, then auto-fallback through others
+    const order = [idx, ...RSS_SOURCES.map((_,i)=>i).filter(i=>i!==idx)]
+    for (const i of order) {
+      const items = await fetchNews(RSS_SOURCES[i].url)
+      if (items.length > 0) {
+        setArticles(items)
+        if (i !== idx) setSourceIdx(i) // update selector to working source
+        break
+      }
+    }
     setNewsLoading(false)
   }
 
