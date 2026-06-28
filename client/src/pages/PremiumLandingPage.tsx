@@ -15,6 +15,22 @@ import {
 // ── Easing curves ──────────────────────────────────────────────────────────────
 const EASE_OUT = [0.22, 1, 0.36, 1] as const
 
+// ── Live ticker items ─────────────────────────────────────────────────────────
+const TICKER_ITEMS = [
+  { sym:'EURUSD', price:1.1158, chgPct:+0.11 },
+  { sym:'BTCUSD', price:67420,  chgPct:-0.47 },
+  { sym:'XAUUSD', price:3324,   chgPct:+0.37 },
+  { sym:'NVDA',   price:138.5,  chgPct:+1.54 },
+  { sym:'GBPUSD', price:1.2741, chgPct:-0.16 },
+  { sym:'NIFTY50',price:24182,  chgPct:+0.35 },
+  { sym:'ETHUSD', price:3480,   chgPct:+1.31 },
+  { sym:'USDJPY', price:157.38, chgPct:+0.27 },
+  { sym:'AAPL',   price:298.0,  chgPct:-0.40 },
+  { sym:'SPX500', price:5312,   chgPct:+0.42 },
+  { sym:'USOIL',  price:68.2,   chgPct:-2.57 },
+  { sym:'SOLUSD', price:152.5,  chgPct:+2.14 },
+]
+
 // ── Hook: scroll-triggered fade/slide in ──────────────────────────────────────
 function useFadeIn(delay = 0) {
   const ref = useRef(null)
@@ -44,332 +60,6 @@ function Reveal({ children, delay = 0, direction = 'up', className = '' }: {
   )
 }
 
-// ── Chart 1: Animated candlestick (hero) ──────────────────────────────────────
-interface Candle { o:number; h:number; l:number; c:number }
-
-function HeroChart() {
-  const [candles, setCandles] = useState<Candle[]>([])
-  const [ph, setPH] = useState(0)
-  const timerRef = useRef<ReturnType<typeof setInterval>|null>(null)
-
-  useEffect(() => {
-    const d: Candle[] = []; let price = 185
-    for (let i = 0; i < 70; i++) {
-      const o = price
-      const move = Math.sin(i * 0.25) * 2.2 + (Math.random() - 0.46) * 3.5
-      const c = Math.max(160, Math.min(215, o + move))
-      const r = Math.abs(c - o) * 0.6 + Math.random() * 1.5
-      d.push({ o, h: Math.max(o,c)+r, l: Math.min(o,c)-r, c }); price = c
-    }
-    setCandles(d); setPH(18)
-  }, [])
-
-  useEffect(() => {
-    if (!candles.length) return
-    timerRef.current = setInterval(() => setPH(p => p >= candles.length ? 14 : p + 1), 120)
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [candles.length])
-
-  const vis = candles.slice(0, ph)
-  if (!vis.length) return null
-  const maxP = Math.max(...vis.map(c=>c.h)), minP = Math.min(...vis.map(c=>c.l)), rng = maxP - minP || 1
-  const toY = (p: number) => ((maxP - p) / rng) * 155
-
-  // EMA-like smooth line
-  const ema: [number, number][] = []
-  if (vis.length > 8) {
-    let e = vis.slice(0,8).reduce((s,c)=>s+c.c,0)/8
-    for (let i = 8; i < vis.length; i++) { e = vis[i].c * 0.16 + e * 0.84; ema.push([i, e]) }
-  }
-
-  const cur = vis[vis.length-1], prev = vis[vis.length-2]
-  const chg = cur && prev ? cur.c - prev.c : 0
-
-  return (
-    <div className="rounded-2xl overflow-hidden bg-[#0b0b1a] border border-white/8 shadow-2xl">
-      {/* Top bar */}
-      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-white/5">
-        <div className="flex gap-1.5">
-          {['bg-red-500/60','bg-amber-500/60','bg-emerald-500/60'].map((c,i)=><div key={i} className={`w-3 h-3 rounded-full ${c}`}/>)}
-        </div>
-        <div className="flex items-center gap-2 ml-1">
-          <span className="text-white text-xs font-bold">NVDA</span>
-          <span className="text-xs font-mono text-gray-400">15m</span>
-          {cur && <span className={`text-xs font-mono font-bold ${chg>=0?'text-emerald-400':'text-red-400'}`}>{cur.c.toFixed(2)}</span>}
-        </div>
-        <div className="ml-auto flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-medium">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block"/>Live
-        </div>
-      </div>
-
-      {/* SVG chart */}
-      <div className="h-44 px-2 pt-2 pb-0">
-        <svg width="100%" height="100%" viewBox="0 0 620 155" preserveAspectRatio="none">
-          {[0,40,80,120].map(y=><line key={y} x1="0" y1={y} x2="620" y2={y} stroke="rgba(255,255,255,0.035)" strokeWidth="1"/>)}
-          {vis.map((c,i)=>{
-            const x=(i/69)*598+11, bull=c.c>=c.o, col=bull?'#22c55e':'#ef4444'
-            const bt=Math.min(toY(c.o),toY(c.c)), bh=Math.max(1.5,Math.abs(toY(c.o)-toY(c.c)))
-            return <g key={i}>
-              <line x1={x} y1={toY(c.h)} x2={x} y2={toY(c.l)} stroke={col} strokeWidth="1" opacity={i===vis.length-1?1:0.8}/>
-              <rect x={x-3.5} y={bt} width="7" height={bh} fill={col} rx="0.5" opacity={i===vis.length-1?1:0.85} className={i===vis.length-1?'animate-pulse':''}/>
-            </g>
-          })}
-          {ema.length>2&&<polyline
-            points={ema.map(([i,v])=>`${(i/69)*598+11},${toY(v)}`).join(' ')}
-            fill="none" stroke="#818cf8" strokeWidth="1.8" opacity="0.75" strokeLinejoin="round"/>}
-        </svg>
-      </div>
-
-      {/* OHLC row */}
-      {cur && (
-        <div className="flex items-center gap-4 px-4 py-2 border-t border-white/5 text-[10px] font-mono text-gray-500">
-          <span>O <span className="text-gray-300">{cur.o.toFixed(2)}</span></span>
-          <span>H <span className="text-emerald-400">{cur.h.toFixed(2)}</span></span>
-          <span>L <span className="text-red-400">{cur.l.toFixed(2)}</span></span>
-          <span>C <span className={`font-bold ${chg>=0?'text-emerald-400':'text-red-400'}`}>{cur.c.toFixed(2)}</span></span>
-          <span className={`ml-auto ${chg>=0?'text-emerald-400':'text-red-400'}`}>{chg>=0?'+':''}{chg.toFixed(2)} ({((chg/cur.c)*100).toFixed(2)}%)</span>
-        </div>
-      )}
-
-      {/* Replay bar */}
-      <div className="flex items-center gap-3 px-4 py-2.5 border-t border-white/5">
-        <span className="text-[10px] text-gray-600 font-mono w-10 text-right">{ph}</span>
-        <div className="flex-1 bg-white/5 rounded-full h-1 overflow-hidden">
-          <motion.div className="bg-gradient-to-r from-purple-500 to-blue-500 h-full rounded-full"
-            animate={{ width: `${(ph/70)*100}%` }} transition={{ duration: 0.12 }}/>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-5 h-5 rounded-md bg-purple-500 flex items-center justify-center shrink-0">
-            <Play className="w-2.5 h-2.5 text-white fill-white"/>
-          </div>
-          {['1×','4×','16×'].map(s=>(
-            <span key={s} className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${s==='1×'?'bg-purple-500/20 text-purple-400':'bg-white/5 text-gray-600'}`}>{s}</span>
-          ))}
-          <span className="text-[10px] px-1.5 py-0.5 rounded border border-amber-500/40 text-amber-400 flex items-center gap-0.5 ml-1">
-            <Scissors className="w-2.5 h-2.5"/> Cut
-          </span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Chart 2: Journal P&L calendar visual ──────────────────────────────────────
-function JournalCalendarChart() {
-  const days = ['Mon','Tue','Wed','Thu','Fri']
-  const weeks = [
-    [null, 320, -180, 540, null],
-    [210, -90, 380, -220, 460],
-    [null, 150, 290, -130, 610],
-    [-80, 420, null, 180, -250],
-  ]
-  return (
-    <div className="rounded-2xl bg-[#0b0b1a] border border-white/8 p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Trading Journal</p>
-          <p className="text-white font-bold text-sm mt-0.5">June 2026</p>
-        </div>
-        <div className="text-right">
-          <p className="text-xs text-gray-500">Month P&L</p>
-          <p className="text-emerald-400 font-black text-lg">+$2,410</p>
-        </div>
-      </div>
-      <div className="grid grid-cols-5 gap-1.5 mb-3">
-        {days.map(d=><div key={d} className="text-center text-[9px] text-gray-600 font-medium">{d}</div>)}
-      </div>
-      <div className="space-y-1.5">
-        {weeks.map((week, wi) => (
-          <div key={wi} className="grid grid-cols-5 gap-1.5">
-            {week.map((pnl, di) => (
-              <motion.div key={di}
-                initial={{ opacity: 0, scale: 0.5 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: wi * 0.08 + di * 0.03, duration: 0.4 }}
-                className={`h-10 rounded-lg flex flex-col items-center justify-center text-[9px] font-bold cursor-default transition-all hover:scale-105 ${
-                  pnl === null ? 'bg-white/3 border border-white/5 text-gray-700' :
-                  pnl > 0 ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400' :
-                  'bg-red-500/15 border border-red-500/25 text-red-400'
-                }`}>
-                {pnl !== null && (
-                  <>
-                    <span>{pnl > 0 ? '▲' : '▼'}</span>
-                    <span>{pnl > 0 ? '+' : ''}{pnl}</span>
-                  </>
-                )}
-              </motion.div>
-            ))}
-          </div>
-        ))}
-      </div>
-      <div className="flex items-center gap-4 mt-4 text-[10px] text-gray-500">
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-emerald-500/20 border border-emerald-500/30 inline-block"/>Win</span>
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-red-500/15 border border-red-500/25 inline-block"/>Loss</span>
-        <span className="ml-auto font-medium text-gray-400">Win rate: 68%</span>
-      </div>
-    </div>
-  )
-}
-
-// ── Chart 3: Equity curve ─────────────────────────────────────────────────────
-function EquityCurve() {
-  const points = [100,104,102,108,106,113,110,118,115,122,120,128,125,133,130,138,142,139,147,145,152]
-  const maxP = Math.max(...points), minP = Math.min(...points), rng = maxP - minP
-  const toY = (p: number) => 120 - ((p - minP) / rng) * 100
-
-  const pathD = points.map((p, i) => {
-    const x = (i / (points.length - 1)) * 340
-    const y = toY(p)
-    return i === 0 ? `M ${x} ${y}` : `C ${x - 10} ${y + 2}, ${x - 5} ${y - 2}, ${x} ${y}`
-  }).join(' ')
-
-  const fillD = `${pathD} L 340 140 L 0 140 Z`
-
-  return (
-    <div className="rounded-2xl bg-[#0b0b1a] border border-white/8 p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Equity Curve</p>
-          <p className="text-white font-bold text-sm mt-0.5">+52% since January</p>
-        </div>
-        <div className="text-xs px-2 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 font-semibold border border-emerald-500/20">
-          ↑ Growing
-        </div>
-      </div>
-      <svg width="100%" height="140" viewBox="0 0 360 140" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="eq-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.4"/>
-            <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0"/>
-          </linearGradient>
-        </defs>
-        {[0, 40, 80, 120].map(y=><line key={y} x1="0" y1={y} x2="360" y2={y} stroke="rgba(255,255,255,0.04)" strokeWidth="1"/>)}
-        <motion.path d={fillD} fill="url(#eq-grad)"
-          initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 1 }}/>
-        <motion.path d={pathD} fill="none" stroke="#8b5cf6" strokeWidth="2.5" strokeLinejoin="round"
-          initial={{ pathLength: 0 }} whileInView={{ pathLength: 1 }} viewport={{ once: true }}
-          transition={{ duration: 1.8, ease: EASE_OUT }}/>
-        {points.map((p, i) => (
-          <motion.circle key={i} cx={(i/(points.length-1))*340} cy={toY(p)} r="3" fill="#8b5cf6"
-            initial={{ opacity: 0, scale: 0 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }}
-            transition={{ delay: i * 0.08, duration: 0.3 }}/>
-        ))}
-      </svg>
-      <div className="flex justify-between text-[10px] text-gray-600 mt-1 font-mono">
-        <span>Jan</span><span>Mar</span><span>May</span><span>Jun</span>
-      </div>
-    </div>
-  )
-}
-
-// ── Chart 4: Edge Plan builder preview ────────────────────────────────────────
-function EdgePlanChart() {
-  const steps = [
-    { num: 1, text: 'Mark HTF range + premium/discount', done: true },
-    { num: 2, text: 'Mark liquidity (PDH/PDL, equal H/L)', done: true },
-    { num: 3, text: 'Pick ONE opposing target', done: true },
-    { num: 4, text: 'Wait for LQ Sweep entry model', done: false },
-    { num: 5, text: 'Define invalidation level', done: false },
-  ]
-  const criteria = ['LQ Sweep', 'Market Shift', 'Breakout Candle']
-
-  return (
-    <div className="rounded-2xl bg-[#0b0b1a] border border-white/8 p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-2 h-2 rounded-full bg-red-500"/>
-        <span className="text-white font-bold text-sm">Market Mechanics Plan</span>
-        <span className="text-[10px] ml-auto px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-400 border border-brand-500/30">Active</span>
-      </div>
-
-      <p className="text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-2">Charting Process</p>
-      <div className="space-y-2 mb-4">
-        {steps.map((s, i) => (
-          <motion.div key={i}
-            initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}
-            transition={{ delay: i * 0.08 }}
-            className="flex items-start gap-2.5">
-            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-px ${
-              s.done ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/5 text-gray-600 border border-white/10'
-            }`}>{s.done ? '✓' : s.num}</div>
-            <span className={`text-[11px] leading-tight ${s.done ? 'text-gray-400' : 'text-gray-600'}`}>{s.text}</span>
-          </motion.div>
-        ))}
-      </div>
-
-      <p className="text-[10px] text-gray-500 uppercase tracking-wide font-semibold mb-2">Entry Criteria</p>
-      <div className="flex flex-wrap gap-1.5">
-        {criteria.map(c => (
-          <span key={c} className="text-[10px] px-2 py-1 rounded-lg bg-blue-500/15 border border-blue-500/25 text-blue-400 font-medium">{c}</span>
-        ))}
-      </div>
-
-      <div className="mt-4 p-2.5 rounded-lg bg-amber-500/8 border border-amber-500/20">
-        <p className="text-[10px] text-amber-400 font-semibold">Invalidation</p>
-        <p className="text-[10px] text-amber-400/70 mt-0.5">Price breaks + holds beyond key HTF level</p>
-      </div>
-    </div>
-  )
-}
-
-// ── Chart 5: Sanctuary mood ────────────────────────────────────────────────────
-function SanctuaryCard() {
-  const [active, setActive] = useState('ocean')
-  const sounds = [
-    { v:'ocean', e:'🌊', l:'Ocean' }, { v:'rain', e:'🌧️', l:'Rain' },
-    { v:'forest', e:'🌲', l:'Forest' }, { v:'bowl', e:'🎵', l:'Bowl' },
-    { v:'528hz', e:'✨', l:'528 Hz' }, { v:'om', e:'🕉️', l:'OM Drone' },
-  ]
-  return (
-    <div className="rounded-2xl bg-[#0b0b1a] border border-white/8 p-5 relative overflow-hidden">
-      <div className="absolute inset-0 bg-cover bg-center opacity-10"
-        style={{ backgroundImage: `url(https://images.unsplash.com/photo-1501854140801-50d01698950b?w=400&q=60)` }}/>
-      <div className="relative">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Sanctuary</p>
-            <p className="text-white font-bold text-sm mt-0.5">Meditation · Focus</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-black text-white tabular-nums">08:42</p>
-            <p className="text-[10px] text-gray-500">remaining</p>
-          </div>
-        </div>
-
-        {/* Circle timer */}
-        <div className="flex justify-center mb-4">
-          <div className="relative w-20 h-20">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 80 80">
-              <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6"/>
-              <motion.circle cx="40" cy="40" r="34" fill="none" stroke="#8b5cf6" strokeWidth="6"
-                strokeLinecap="round"
-                strokeDasharray={`${2*Math.PI*34}`}
-                initial={{ strokeDashoffset: `${2*Math.PI*34*0.9}` }}
-                animate={{ strokeDashoffset: [`${2*Math.PI*34*0.9}`, `${2*Math.PI*34*0.3}`] }}
-                transition={{ duration: 4, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}/>
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-xl">🪷</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-1.5">
-          {sounds.map(s => (
-            <button key={s.v} onClick={() => setActive(s.v)}
-              className={`flex flex-col items-center gap-0.5 py-2 rounded-lg text-[10px] font-medium transition border ${
-                active===s.v ? 'border-purple-500/50 bg-purple-500/15 text-purple-300' : 'border-white/5 bg-white/3 text-gray-500 hover:border-white/10'
-              }`}>
-              <span className="text-sm">{s.e}</span>
-              <span>{s.l}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Horizontal scroll section for features ────────────────────────────────────
 const FEATURE_SECTIONS = [
   {
@@ -378,7 +68,7 @@ const FEATURE_SECTIONS = [
     headingGrad: 'from-purple-400 to-blue-400',
     body: 'Real price history from Yahoo Finance. 150+ instruments. Play bar by bar, paper trade, test your edge against actual market conditions — not random simulations.',
     bullets: ['Real data: stocks, forex, crypto, indices', 'Any global ticker: RELIANCE.NS, SAP.DE, 7203.T', 'SMA, EMA, BB, RSI, MACD indicators', 'Speed 1× to 32× · Scissors cut point'],
-    chart: 'hero',
+    chart: 'replay',
   },
   {
     tag: 'Trading Journal', tagColor: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
@@ -414,12 +104,313 @@ const FEATURE_SECTIONS = [
   },
 ]
 
+// ── Compact animated demo components (shown in feature sections) ─────────────
+
+// Big animated candlestick chart used in the hero section
+interface Candle { o:number; h:number; l:number; c:number }
+function HeroChart() {
+  const [candles, setCandles] = useState<Candle[]>([])
+  const [ph, setPH] = useState(0)
+  const timerRef = useRef<ReturnType<typeof setInterval>|null>(null)
+  useEffect(() => {
+    const d: Candle[] = []; let price = 185
+    for (let i = 0; i < 70; i++) {
+      const o = price
+      const move = Math.sin(i * 0.25) * 2.2 + (Math.random() - 0.46) * 3.5
+      const c = Math.max(160, Math.min(215, o + move))
+      const r = Math.abs(c - o) * 0.6 + Math.random() * 1.5
+      d.push({ o, h: Math.max(o,c)+r, l: Math.min(o,c)-r, c }); price = c
+    }
+    setCandles(d); setPH(18)
+  }, [])
+  useEffect(() => {
+    if (!candles.length) return
+    timerRef.current = setInterval(() => setPH(p => p >= candles.length ? 14 : p + 1), 120)
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [candles.length])
+  const vis = candles.slice(0, ph)
+  if (!vis.length) return null
+  const maxP = Math.max(...vis.map(c=>c.h)), minP = Math.min(...vis.map(c=>c.l)), rng = maxP - minP || 1
+  const toY = (p: number) => ((maxP - p) / rng) * 155
+  const ema: [number, number][] = []
+  if (vis.length > 8) {
+    let e = vis.slice(0,8).reduce((s,c)=>s+c.c,0)/8
+    for (let i = 8; i < vis.length; i++) { e = vis[i].c * 0.16 + e * 0.84; ema.push([i, e]) }
+  }
+  const cur = vis[vis.length-1], prev = vis[vis.length-2]
+  const chg = cur && prev ? cur.c - prev.c : 0
+  return (
+    <div className="rounded-2xl overflow-hidden bg-[#0b0b1a] border border-white/8 shadow-2xl">
+      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-white/5">
+        <div className="flex gap-1.5">
+          {['bg-red-500/60','bg-amber-500/60','bg-emerald-500/60'].map((c,i)=><div key={i} className={`w-3 h-3 rounded-full ${c}`}/>)}
+        </div>
+        <div className="flex items-center gap-2 ml-1">
+          <span className="text-white text-xs font-bold">NVDA</span>
+          <span className="text-xs font-mono text-gray-400">15m</span>
+          {cur && <span className={`text-xs font-mono font-bold ${chg>=0?'text-emerald-400':'text-red-400'}`}>{cur.c.toFixed(2)}</span>}
+        </div>
+        <div className="ml-auto flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-medium">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block"/>Live
+        </div>
+      </div>
+      <div className="h-44 px-2 pt-2 pb-0">
+        <svg width="100%" height="100%" viewBox="0 0 620 155" preserveAspectRatio="none">
+          {[0,40,80,120].map(y=><line key={y} x1="0" y1={y} x2="620" y2={y} stroke="rgba(255,255,255,0.035)" strokeWidth="1"/>)}
+          {vis.map((c,i)=>{
+            const x=(i/69)*598+11, bull=c.c>=c.o, col=bull?'#22c55e':'#ef4444'
+            const bt=Math.min(toY(c.o),toY(c.c)), bh=Math.max(1.5,Math.abs(toY(c.o)-toY(c.c)))
+            return <g key={i}>
+              <line x1={x} y1={toY(c.h)} x2={x} y2={toY(c.l)} stroke={col} strokeWidth="1" opacity={i===vis.length-1?1:0.8}/>
+              <rect x={x-3.5} y={bt} width="7" height={bh} fill={col} rx="0.5" opacity={i===vis.length-1?1:0.85} className={i===vis.length-1?'animate-pulse':''}/>
+            </g>
+          })}
+          {ema.length>2&&<polyline points={ema.map(([i,v])=>`${(i/69)*598+11},${toY(v)}`).join(' ')}
+            fill="none" stroke="#818cf8" strokeWidth="1.8" opacity="0.75" strokeLinejoin="round"/>}
+        </svg>
+      </div>
+      {cur && (
+        <div className="flex items-center gap-4 px-4 py-2 border-t border-white/5 text-[10px] font-mono text-gray-500">
+          <span>O <span className="text-gray-300">{cur.o.toFixed(2)}</span></span>
+          <span>H <span className="text-emerald-400">{cur.h.toFixed(2)}</span></span>
+          <span>L <span className="text-red-400">{cur.l.toFixed(2)}</span></span>
+          <span>C <span className={`font-bold ${chg>=0?'text-emerald-400':'text-red-400'}`}>{cur.c.toFixed(2)}</span></span>
+          <span className={`ml-auto ${chg>=0?'text-emerald-400':'text-red-400'}`}>{chg>=0?'+':''}{chg.toFixed(2)}</span>
+        </div>
+      )}
+      <div className="flex items-center gap-3 px-4 py-2.5 border-t border-white/5">
+        <span className="text-[10px] text-gray-600 font-mono w-10 text-right">{ph}</span>
+        <div className="flex-1 bg-white/5 rounded-full h-1 overflow-hidden">
+          <motion.div className="bg-gradient-to-r from-purple-500 to-blue-500 h-full rounded-full"
+            animate={{ width: `${(ph/70)*100}%` }} transition={{ duration: 0.12 }}/>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 rounded-md bg-purple-500 flex items-center justify-center shrink-0">
+            <Play className="w-2.5 h-2.5 text-white fill-white"/>
+          </div>
+          {['1×','4×','16×'].map(s=>(
+            <span key={s} className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${s==='1×'?'bg-purple-500/20 text-purple-400':'bg-white/5 text-gray-600'}`}>{s}</span>
+          ))}
+          <span className="text-[10px] px-1.5 py-0.5 rounded border border-amber-500/40 text-amber-400 flex items-center gap-0.5 ml-1">
+            <Scissors className="w-2.5 h-2.5"/> Cut
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ReplayDemo() {
+  const [ph, setPH] = useState(8)
+  const [playing, setPlaying] = useState(true)
+  const heights = [30,45,38,55,50,62,58,72,65,78,70,85,80,90,75,95,88,92,98,100]
+  useEffect(() => {
+    if (!playing) return
+    const id = setInterval(() => setPH(p => p >= heights.length ? 6 : p + 1), 200)
+    return () => clearInterval(id)
+  }, [playing])
+  return (
+    <div className="rounded-xl bg-[#0b0b1a] border border-white/8 p-4 text-[10px]">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-purple-300">EURUSD</span>
+          <span className="text-gray-600 font-mono">15m · 1.1158</span>
+        </div>
+        <span className="flex items-center gap-1 text-emerald-400"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block"/>Live</span>
+      </div>
+      {/* Mini candle chart */}
+      <div className="flex items-end gap-px h-16 mb-3">
+        {heights.slice(0, ph).map((h, i) => (
+          <motion.div key={i} className="flex-1 rounded-sm"
+            initial={{ height: 0 }} animate={{ height: `${h}%` }}
+            transition={{ duration: 0.15 }}
+            style={{ background: i % 3 === 0 ? '#ef4444' : '#22c55e', opacity: i === ph - 1 ? 1 : 0.75 }}/>
+        ))}
+      </div>
+      {/* Replay controls */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1 bg-white/5 rounded-full h-1 overflow-hidden">
+          <motion.div className="bg-gradient-to-r from-purple-500 to-blue-500 h-full rounded-full"
+            animate={{ width: `${(ph / heights.length) * 100}%` }} transition={{ duration: 0.15 }}/>
+        </div>
+        <button onClick={() => setPlaying(p => !p)}
+          className="w-5 h-5 rounded bg-purple-600 flex items-center justify-center shrink-0">
+          {playing
+            ? <span className="w-2 h-2 flex gap-0.5"><span className="w-0.5 h-2 bg-white rounded"/><span className="w-0.5 h-2 bg-white rounded"/></span>
+            : <Play className="w-2.5 h-2.5 text-white fill-white"/>}
+        </button>
+        {['1×','4×','16×'].map(s => (
+          <span key={s} className={`px-1 py-0.5 rounded text-[9px] font-medium ${s==='1×'?'bg-purple-500/30 text-purple-300':'text-gray-600'}`}>{s}</span>
+        ))}
+        <span className="text-amber-400 flex items-center gap-0.5 text-[9px]"><Scissors className="w-2.5 h-2.5"/>Cut</span>
+      </div>
+    </div>
+  )
+}
+
+function JournalDemo() {
+  const days = [null,320,-180,540,null,210,-90,380,-220,460,null,150,290,-130,610]
+  const [visible, setVisible] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setVisible(v => v >= days.length ? 0 : v + 1), 120)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <div className="rounded-xl bg-[#0b0b1a] border border-white/8 p-4 text-[10px]">
+      <div className="flex justify-between mb-2">
+        <span className="text-white font-bold">Journal · June</span>
+        <span className="text-emerald-400 font-bold">+$1,870</span>
+      </div>
+      <div className="grid grid-cols-5 gap-1 mb-2">
+        {['M','T','W','T','F'].map(d => <div key={d} className="text-center text-gray-600">{d}</div>)}
+      </div>
+      <div className="grid grid-cols-5 gap-1">
+        {days.map((v, i) => (
+          <motion.div key={i}
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={i < visible ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.5 }}
+            transition={{ duration: 0.2 }}
+            className={`h-7 rounded text-[9px] font-bold flex items-center justify-center ${
+              v === null ? 'bg-white/3' : v > 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/15 text-red-400'
+            }`}>
+            {v !== null ? (v > 0 ? `+${v}` : v) : ''}
+          </motion.div>
+        ))}
+      </div>
+      <div className="flex justify-between mt-2 text-gray-500">
+        <span>Win rate</span><span className="text-emerald-400 font-bold">68%</span>
+      </div>
+    </div>
+  )
+}
+
+function EquityDemo() {
+  const pts = [100,103,101,107,105,112,109,117,114,121,119,126,124,131,128,135,140,137,144,142,149]
+  const [drawn, setDrawn] = useState(4)
+  useEffect(() => {
+    const id = setInterval(() => setDrawn(d => d >= pts.length ? 4 : d + 1), 180)
+    return () => clearInterval(id)
+  }, [])
+  const vis = pts.slice(0, drawn)
+  const maxP = Math.max(...vis), minP = Math.min(...vis), rng = maxP - minP || 1
+  const toY = (p: number) => 56 - ((p - minP) / rng) * 50
+  const pathD = vis.map((p, i) => `${i === 0 ? 'M' : 'L'} ${(i / (pts.length - 1)) * 280} ${toY(p)}`).join(' ')
+  return (
+    <div className="rounded-xl bg-[#0b0b1a] border border-white/8 p-4 text-[10px]">
+      <div className="flex justify-between mb-2">
+        <span className="text-white font-bold">Equity Curve</span>
+        <span className="text-emerald-400 font-bold">+49%</span>
+      </div>
+      <svg width="100%" height="64" viewBox="0 0 280 64">
+        <defs>
+          <linearGradient id="eq2" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.4"/>
+            <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0"/>
+          </linearGradient>
+        </defs>
+        {vis.length > 1 && (
+          <>
+            <motion.path d={`${pathD} L ${((drawn-1)/(pts.length-1))*280} 64 L 0 64 Z`}
+              fill="url(#eq2)" initial={{ opacity:0 }} animate={{ opacity:1 }}/>
+            <motion.path d={pathD} fill="none" stroke="#8b5cf6" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round"/>
+          </>
+        )}
+        {vis.map((p, i) => (
+          <motion.circle key={i} cx={(i/(pts.length-1))*280} cy={toY(p)} r="2.5"
+            fill="#8b5cf6" initial={{ scale:0 }} animate={{ scale:1 }}
+            transition={{ delay: i * 0.02 }}/>
+        ))}
+      </svg>
+      <div className="flex justify-between text-gray-600 mt-1">
+        <span>Jan</span><span>Mar</span><span>Jun</span>
+      </div>
+    </div>
+  )
+}
+
+function EdgeDemo() {
+  const [checked, setChecked] = useState<number[]>([])
+  const steps = ['Mark HTF range', 'Mark liquidity', 'Pick ONE target', 'LQ Sweep entry', 'Set invalidation']
+  useEffect(() => {
+    let i = 0
+    const id = setInterval(() => {
+      if (i < steps.length) { setChecked(p => [...p, i]); i++ }
+      else { setChecked([]); i = 0 }
+    }, 600)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <div className="rounded-xl bg-[#0b0b1a] border border-white/8 p-4 text-[10px]">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="w-2 h-2 rounded-full bg-red-500"/>
+        <span className="text-white font-bold text-xs">Market Mechanics Plan</span>
+      </div>
+      <div className="space-y-2">
+        {steps.map((s, i) => (
+          <motion.div key={i} className="flex items-center gap-2"
+            initial={{ x: -10, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: i * 0.05 }}>
+            <motion.div
+              animate={checked.includes(i) ? { backgroundColor: '#22c55e', borderColor: '#22c55e' } : { backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.15)' }}
+              transition={{ duration: 0.3 }}
+              className="w-4 h-4 rounded-full border flex items-center justify-center shrink-0">
+              {checked.includes(i) && <Check className="w-2.5 h-2.5 text-white"/>}
+            </motion.div>
+            <span className={checked.includes(i) ? 'text-gray-400 line-through' : 'text-gray-300'}>{s}</span>
+          </motion.div>
+        ))}
+      </div>
+      <div className="mt-3 p-2 rounded bg-amber-500/8 border border-amber-500/20 text-amber-400/70 text-[9px]">
+        Invalidation: Price breaks key HTF level
+      </div>
+    </div>
+  )
+}
+
+function SanctuaryDemo() {
+  const [active, setActive] = useState('ocean')
+  const [progress, setProgress] = useState(0.2)
+  const sounds = [['🌊','ocean'],['🌧️','rain'],['🌲','forest'],['🎵','bowl'],['✨','528hz'],['🕉️','om']]
+  useEffect(() => {
+    const id = setInterval(() => setProgress(p => p >= 1 ? 0.05 : p + 0.008), 100)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <div className="rounded-xl bg-[#0b0b1a] border border-white/8 p-4 text-[10px]">
+      <div className="flex justify-center mb-3">
+        <div className="relative w-14 h-14">
+          <svg className="w-full h-full -rotate-90" viewBox="0 0 56 56">
+            <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="4"/>
+            <motion.circle cx="28" cy="28" r="24" fill="none" stroke="#7c3aed" strokeWidth="4"
+              strokeLinecap="round" strokeDasharray={`${2*Math.PI*24}`}
+              animate={{ strokeDashoffset: `${2*Math.PI*24*(1-progress)}` }}
+              transition={{ duration: 0.1 }}/>
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center text-lg">🪷</div>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-1">
+        {sounds.map(([e, v]) => (
+          <button key={v} onClick={() => setActive(v)}
+            className={`flex flex-col items-center py-1.5 rounded-lg text-[9px] transition ${
+              active === v ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-white/3 text-gray-600 border border-transparent'
+            }`}>
+            <span className="text-sm">{e}</span>{v}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function ChartForSection({ type }: { type: string }) {
-  if (type === 'hero')    return <HeroChart />
-  if (type === 'journal') return <JournalCalendarChart />
-  if (type === 'equity')  return <EquityCurve />
-  if (type === 'edge')    return <EdgePlanChart />
-  if (type === 'sanctuary') return <SanctuaryCard />
+  if (type === 'replay')    return <ReplayDemo />
+  if (type === 'journal')   return <JournalDemo />
+  if (type === 'equity')    return <EquityDemo />
+  if (type === 'edge')      return <EdgeDemo />
+  if (type === 'sanctuary') return <SanctuaryDemo />
   return null
 }
 
@@ -473,9 +464,6 @@ export default function PremiumLandingPage() {
   const isLoggedIn = !!user
 
   const { scrollYProgress } = useScroll()
-  const heroY       = useTransform(scrollYProgress, [0, 0.35], [0, -100])
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.3], [1, 0])
-  const heroScale   = useTransform(scrollYProgress, [0, 0.3], [1, 0.96])
 
   const PRICE = { USD: 12, EUR: 11, INR: 999 }
   const SYM   = { USD: '$', EUR: '€', INR: '₹' }
@@ -496,17 +484,27 @@ export default function PremiumLandingPage() {
         transition={{ duration: 0.7, ease: EASE_OUT }}
         className="fixed top-0 inset-x-0 z-50 border-b border-white/8 bg-[#070714]/95 backdrop-blur-2xl">
         <div className="max-w-7xl mx-auto px-8 h-18 flex items-center justify-between" style={{height:'72px'}}>
-          <div className="flex items-center gap-3">
-            <motion.div whileHover={{ rotate: 10, scale: 1.1 }}
-              className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
-              <TrendingUp className="w-5 h-5 text-white"/>
-            </motion.div>
-            <span className="font-black text-xl">TradeFlow</span>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-brand-500 flex items-center justify-center shadow-lg shadow-brand-500/30 shrink-0">
+              <TrendingUp className="w-4 h-4 text-white"/>
+            </div>
+            <span className="font-bold text-white text-sm tracking-wide">TradeFlow</span>
           </div>
-          <div className="hidden md:flex items-center gap-10 text-base text-gray-400">
-            {['Features','Markets','Pricing'].map(item => (
-              <a key={item} href={`#${item.toLowerCase()}`}
-                className="hover:text-white transition-colors duration-200 font-medium">{item}</a>
+          <div className="hidden md:flex items-center gap-2">
+            {[
+              { label: 'Features',     href: '#features' },
+              { label: 'How it Works', href: '#howitworks' },
+              { label: 'Markets',      href: '#markets' },
+              { label: 'Pricing',      href: '#pricing' },
+              { label: 'Blog',         href: '#' },
+            ].map(item => (
+              <a key={item.label} href={item.href}
+                className="px-3 py-1.5 rounded-lg text-base text-gray-400 hover:text-white hover:bg-white/5 transition-all duration-200 font-medium">
+                {item.label}
+                {item.label === 'Blog' && (
+                  <span className="ml-1.5 text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-bold align-middle">Soon</span>
+                )}
+              </a>
             ))}
           </div>
           <div className="flex items-center gap-3">
@@ -533,118 +531,167 @@ export default function PremiumLandingPage() {
         </div>
       </motion.nav>
 
-      {/* ── HERO ─────────────────────────────────────────────────────────────── */}
-      <section className="relative flex items-center pt-20 overflow-hidden">
-        {/* Multi-layer background glows */}
+      {/* ── HERO — centered, with ticker + big chart ─────────────────────────── */}
+      <section className="relative pt-20 pb-10 overflow-hidden">
+        {/* Background glows */}
         <div className="absolute inset-0 pointer-events-none">
           <motion.div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[1100px] h-[600px] rounded-full"
-            style={{ background: 'radial-gradient(ellipse, rgba(139,92,246,0.12) 0%, transparent 70%)' }}
+            style={{ background: 'radial-gradient(ellipse, rgba(139,92,246,0.18) 0%, transparent 70%)' }}
             animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }}
             transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}/>
-          <div className="absolute top-1/2 left-1/4 w-[300px] h-[300px] bg-blue-500/6 blur-[80px] rounded-full"/>
-          <div className="absolute bottom-1/3 right-1/4 w-[250px] h-[250px] bg-violet-500/8 blur-[70px] rounded-full"/>
-          {/* Grid lines */}
+          <div className="absolute top-1/2 left-1/4 w-[300px] h-[300px] bg-teal-500/5 blur-[80px] rounded-full"/>
+          <div className="absolute bottom-1/3 right-1/4 w-[250px] h-[250px] bg-violet-500/6 blur-[70px] rounded-full"/>
           <div className="absolute inset-0 opacity-20"
             style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '60px 60px' }}/>
         </div>
-        <Particles count={30}/>
+        <Particles count={25}/>
 
-        <div className="max-w-7xl mx-auto px-6 w-full grid lg:grid-cols-2 gap-12 items-center py-14 relative z-10">
-          {/* Left */}
-          <motion.div style={{ y: heroY, opacity: heroOpacity, scale: heroScale }}>
-            <Reveal>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-purple-500/30 bg-purple-500/8 text-purple-300 text-xs font-semibold mb-5 tracking-wide">
-                <Zap className="w-3 h-3 fill-purple-400 text-purple-400"/>
-                FREE alternative to FXReplay · No credit card
-              </div>
-            </Reveal>
+        {/* Live price ticker */}
+        <div className="relative z-10 overflow-hidden mb-8">
+          <div className="relative border-y border-white/5 bg-white/2 py-2">
+            <motion.div className="flex gap-0 whitespace-nowrap"
+              animate={{ x: ['0%', '-50%'] }}
+              transition={{ duration: 28, repeat: Infinity, ease: 'linear' }}>
+              {[...TICKER_ITEMS, ...TICKER_ITEMS].map((t, i) => (
+                <div key={i} className="inline-flex items-center gap-2.5 px-5 border-r border-white/5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${t.chgPct >= 0 ? 'bg-emerald-400 animate-pulse' : 'bg-red-400 animate-pulse'}`}/>
+                  <span className="text-xs font-bold text-white/80 font-mono">{t.sym}</span>
+                  <span className="text-xs font-mono text-white/60">{t.price > 1000 ? t.price.toLocaleString() : t.price > 10 ? t.price.toFixed(2) : t.price.toFixed(4)}</span>
+                  <span className={`text-[10px] font-semibold font-mono ${t.chgPct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {t.chgPct >= 0 ? '▲' : '▼'}{Math.abs(t.chgPct).toFixed(2)}%
+                  </span>
+                </div>
+              ))}
+            </motion.div>
+            <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-[#070714] to-transparent pointer-events-none"/>
+            <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-[#070714] to-transparent pointer-events-none"/>
+          </div>
+        </div>
 
-            <div className="mb-5">
-              <motion.h1
-                initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 1, delay: 0.15, ease: EASE_OUT }}
-                className="text-6xl lg:text-[7.5rem] font-black tracking-tighter leading-[1.05] mb-4 pb-2">
-                <span className="block text-white">Practice</span>
-                <span className="block bg-gradient-to-r from-purple-400 via-violet-400 to-blue-400 bg-clip-text text-transparent">
-                  trading.
-                </span>
-                <span className="block text-white mt-1">Without</span>
-                <span className="block bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">
-                  losing money.
-                </span>
-              </motion.h1>
+        {/* Centered headline */}
+        <div className="max-w-5xl mx-auto px-6 text-center relative z-10 mb-10">
+          <Reveal>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-purple-500/30 bg-purple-500/8 text-purple-300 text-xs font-semibold mb-6 tracking-wide">
+              <Zap className="w-3 h-3 fill-purple-400 text-purple-400"/>
+              FREE alternative to FXReplay · No credit card
             </div>
+          </Reveal>
 
-            <Reveal delay={0.3}>
-              <p className="text-xl text-gray-400 max-w-lg leading-relaxed mb-7">
-                Chart replay on real market data. Journal. Edge plans. Meditation.
-                Everything a serious trader needs — in one beautiful platform.
-              </p>
-            </Reveal>
+          <div className="mb-6">
+            <motion.h1
+              initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.9, delay: 0.15, ease: EASE_OUT }}
+              className="text-5xl lg:text-7xl font-black tracking-tighter leading-[1.0] mb-5 pb-2">
+              <span className="text-white">Practice trading.</span>
+              <br/>
+              <span className="bg-gradient-to-r from-purple-400 via-violet-400 to-teal-400 bg-clip-text text-transparent">
+                Without losing money.
+              </span>
+            </motion.h1>
+          </div>
 
-            <Reveal delay={0.4}>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <motion.button
-                  whileHover={{ scale: 1.04, boxShadow: '0 0 50px rgba(139,92,246,0.5)' }}
-                  whileTap={{ scale: 0.96 }}
-                  onClick={goToAuth}
-                  className="px-9 py-4.5 bg-gradient-to-r from-purple-600 via-violet-600 to-blue-600 text-white font-black text-lg rounded-2xl shadow-2xl shadow-purple-500/30 flex items-center gap-3 justify-center py-5">
-                  Start for free <ArrowRight className="w-5 h-5"/>
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.03, backgroundColor: 'rgba(255,255,255,0.07)' }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={demoLogin}
-                  className="px-9 py-5 bg-white/4 text-white font-bold text-lg rounded-2xl border border-white/10 flex items-center gap-3 justify-center backdrop-blur-sm">
-                  <Play className="w-4 h-4 text-purple-400 fill-purple-400"/>
-                  Try demo now
-                </motion.button>
-              </div>
-            </Reveal>
+          <Reveal delay={0.25}>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed mb-8">
+              Chart replay on real market data. Journal. Edge plans. Meditation.
+              Everything a serious trader needs — in one platform.
+            </p>
+          </Reveal>
 
-            <Reveal delay={0.55}>
-              <div className="grid grid-cols-3 gap-6 mt-10 pt-8 border-t border-white/5">
-                {[{ n: 150, s: '+', l: 'Instruments' }, { n: 10, s: 'y+', l: 'Data depth' }, { n: 7, s: '', l: 'Asset classes' }].map(s => (
-                  <div key={s.l}>
-                    <p className="text-4xl font-black bg-gradient-to-r from-purple-300 to-blue-300 bg-clip-text text-transparent">{s.n}{s.s}</p>
-                    <p className="text-xs text-gray-600 mt-1 font-medium">{s.l}</p>
-                  </div>
-                ))}
-              </div>
-            </Reveal>
-          </motion.div>
+          <Reveal delay={0.35}>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-10">
+              <motion.button
+                whileHover={{ scale: 1.04, boxShadow: '0 0 50px rgba(139,92,246,0.5)' }}
+                whileTap={{ scale: 0.96 }}
+                onClick={goToAuth}
+                className="px-9 py-4 bg-gradient-to-r from-purple-600 via-violet-600 to-teal-600 text-white font-black text-lg rounded-2xl shadow-2xl shadow-purple-500/30 flex items-center gap-2 justify-center">
+                Start for free <ArrowRight className="w-5 h-5"/>
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                onClick={demoLogin}
+                className="px-9 py-4 bg-white/5 hover:bg-white/8 text-white font-bold text-lg rounded-2xl border border-white/10 flex items-center gap-2 justify-center transition">
+                <Play className="w-4 h-4 text-purple-400 fill-purple-400"/>
+                Try demo now
+              </motion.button>
+            </div>
+          </Reveal>
 
-          {/* Right — chart */}
-          <Reveal direction="right" delay={0.3}>
+          {/* Stats */}
+          <Reveal delay={0.45}>
+            <div className="flex items-center justify-center gap-10 border-t border-white/5 pt-8">
+              {[{ n: '150+', l: 'Instruments' }, { n: '10y+', l: 'Data depth' }, { n: '7', l: 'Asset classes' }, { n: 'Free', l: 'Forever' }].map(s => (
+                <div key={s.l} className="text-center">
+                  <p className="text-3xl font-black bg-gradient-to-r from-purple-300 to-teal-300 bg-clip-text text-transparent">{s.n}</p>
+                  <p className="text-xs text-gray-600 mt-0.5 font-medium">{s.l}</p>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+        </div>
+
+        {/* Big centered chart */}
+        <Reveal delay={0.3}>
+          <div className="max-w-4xl mx-auto px-6 relative z-10">
             <div className="relative">
-              <motion.div
-                className="absolute -inset-6 rounded-3xl"
-                style={{ background: 'radial-gradient(ellipse, rgba(139,92,246,0.18) 0%, transparent 70%)' }}
-                animate={{ opacity: [0.6, 1, 0.6] }}
-                transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}/>
+              <motion.div className="absolute -inset-6 rounded-3xl"
+                style={{ background: 'radial-gradient(ellipse, rgba(139,92,246,0.15) 0%, transparent 65%)' }}
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}/>
               <div className="relative">
                 <HeroChart />
-                {/* Floating badges */}
-                <motion.div
-                  animate={{ y: [0, -10, 0] }}
-                  transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-                  className="absolute -top-5 -right-5 px-3.5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl shadow-xl text-xs font-black text-white whitespace-nowrap">
-                  📈 NVDA +2.8%
+                <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+                  className="absolute -top-4 -right-4 px-3 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl shadow-xl text-xs font-black text-white whitespace-nowrap hidden sm:block">
+                  📈 Real Yahoo Finance data
                 </motion.div>
-                <motion.div
-                  animate={{ y: [0, 10, 0] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 1.2 }}
-                  className="absolute -bottom-5 -left-5 px-3.5 py-2.5 bg-gradient-to-r from-purple-600 to-violet-600 rounded-2xl shadow-xl text-xs font-black text-white whitespace-nowrap flex items-center gap-1.5">
-                  <Scissors className="w-3 h-3"/> Cut point active
+                <motion.div animate={{ y: [0, 8, 0] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }}
+                  className="absolute -bottom-4 -left-4 px-3 py-2 bg-gradient-to-r from-purple-600 to-violet-600 rounded-xl shadow-xl text-xs font-black text-white whitespace-nowrap flex items-center gap-1.5 hidden sm:flex">
+                  <Scissors className="w-3 h-3"/> Cut point · Replay mode
                 </motion.div>
               </div>
             </div>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ── How it Works ─────────────────────────────────────────────────────── */}
+      <section id="howitworks" className="py-20 px-6 border-t border-white/5">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-14">
+            <Reveal>
+              <h2 className="text-4xl lg:text-5xl font-black text-white mb-3">How it works</h2>
+              <p className="text-gray-400 text-lg max-w-xl mx-auto">Three steps to trade better without risking real money.</p>
+            </Reveal>
+          </div>
+          <div className="grid md:grid-cols-3 gap-6 relative">
+            <div className="hidden md:block absolute top-10 left-1/3 right-1/3 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(139,92,246,0.4), transparent)' }}/>
+            {[
+              { step: '01', emoji: '🔍', title: 'Pick any instrument', desc: 'Search any global stock, forex pair, crypto or index. EURUSD, RELIANCE.NS, AAPL, BTC — real historical data from Yahoo Finance.' },
+              { step: '02', emoji: '⏮️', title: 'Replay the market', desc: 'Wind back to any point in history. Advance bar by bar at your own speed. Paper trade, test your entry, see what actually happened.' },
+              { step: '03', emoji: '📓', title: 'Log & improve', desc: 'After every session, log trades in the journal. Track emotions, plan adherence, win rate. Spot your patterns. Trade better.' },
+            ].map((s, i) => (
+              <Reveal key={s.step} delay={i * 0.12}>
+                <motion.div whileHover={{ y: -4, borderColor: 'rgba(139,92,246,0.4)' }}
+                  className="relative p-6 rounded-2xl border border-white/6 bg-white/2 transition-all group cursor-default">
+                  <div className="text-3xl mb-3">{s.emoji}</div>
+                  <div className="text-[10px] font-black text-purple-500/60 tracking-widest mb-2 uppercase">{s.step}</div>
+                  <h3 className="text-base font-black text-white mb-2 group-hover:text-purple-300 transition-colors">{s.title}</h3>
+                  <p className="text-sm text-gray-500 leading-relaxed">{s.desc}</p>
+                </motion.div>
+              </Reveal>
+            ))}
+          </div>
+          <Reveal delay={0.3} className="text-center mt-10">
+            <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+              onClick={isLoggedIn ? () => navigate('/app/dashboard') : goToAuth}
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-purple-600 to-teal-600 shadow-lg shadow-purple-500/20">
+              Start in 30 seconds — it's free <ArrowRight className="w-4 h-4"/>
+            </motion.button>
           </Reveal>
         </div>
       </section>
 
       {/* ── Ticker marquee ────────────────────────────────────────────────────── */}
-      <MarqueeTicker />
+      {/* ── Ticker marquee now in hero ────────────────────────────────────────── */}
 
       {/* ── Feature sections (Apple-style: big scroll reveals) ────────────────── */}
       <section id="features">
@@ -653,7 +700,7 @@ export default function PremiumLandingPage() {
             {/* Alternating bg glow */}
             <div className="absolute inset-0 pointer-events-none">
               <div className={`absolute w-[600px] h-[400px] blur-[120px] rounded-full ${
-                idx % 2 === 0 ? 'top-1/2 left-0 -translate-y-1/2 bg-purple-600/6' : 'top-1/2 right-0 -translate-y-1/2 bg-blue-600/6'
+                idx % 2 === 0 ? 'top-1/2 left-0 -translate-y-1/2 bg-purple-600/18' : 'top-1/2 right-0 -translate-y-1/2 bg-blue-600/12'
               }`}/>
             </div>
 
@@ -716,12 +763,18 @@ export default function PremiumLandingPage() {
               <div className={idx % 2 === 1 ? 'lg:order-1' : ''}>
                 <Reveal direction={idx % 2 === 0 ? 'right' : 'left'} delay={0.2}>
                   <div className="relative">
+                    {/* Strong glow behind chart */}
                     <motion.div
-                      className="absolute -inset-6 rounded-3xl opacity-40"
-                      style={{ background: `radial-gradient(ellipse, rgba(139,92,246,0.2) 0%, transparent 70%)` }}
-                      animate={{ opacity: [0.3, 0.6, 0.3] }}
-                      transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}/>
-                    <div className="relative">
+                      className="absolute -inset-4 rounded-3xl"
+                      style={{ background: `radial-gradient(ellipse, rgba(139,92,246,0.25) 0%, transparent 70%)` }}
+                      animate={{ opacity: [0.5, 1, 0.5] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}/>
+                    <div className="relative rounded-2xl border border-purple-500/20 overflow-hidden shadow-2xl shadow-purple-500/10">
+                      {/* Live demo badge */}
+                      <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 text-[10px] font-semibold text-white/80">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block"/>
+                        Live demo
+                      </div>
                       <ChartForSection type={sec.chart} />
                     </div>
                   </div>
@@ -735,7 +788,7 @@ export default function PremiumLandingPage() {
       {/* ── Markets ───────────────────────────────────────────────────────────── */}
       <section id="markets" className="py-20 px-6 relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-blue-600/6 blur-[120px] rounded-full"/>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-purple-600/10 blur-[120px] rounded-full"/>
         </div>
         <div className="max-w-7xl mx-auto relative">
           <div className="text-center mb-10">
@@ -760,19 +813,19 @@ export default function PremiumLandingPage() {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { flag:'🇺🇸', name:'US Stocks',    ex:'AAPL · NVDA · TSLA' },
-              { flag:'🇮🇳', name:'India (NSE)',  ex:'RELIANCE.NS · TCS.NS' },
-              { flag:'🌍', name:'Forex',          ex:'EURUSD · GBPJPY · USDJPY' },
-              { flag:'₿',  name:'Crypto',         ex:'BTCUSD · ETHUSD · SOL' },
-              { flag:'🇩🇪', name:'Germany',      ex:'SAP.DE · BMW.DE · SIE.DE' },
-              { flag:'🇬🇧', name:'UK (LSE)',      ex:'SHEL.L · HSBA.L · BP.L' },
-              { flag:'🇯🇵', name:'Japan (TSE)',   ex:'7203.T · 6758.T · 9984.T' },
-              { flag:'📊', name:'Indices',         ex:'SPX500 · DAX40 · NIKKEI' },
+              { flag:<img src="https://flagcdn.com/w40/us.png" className="w-8 h-6 rounded object-cover" alt="US"/>, name:'US Stocks',   ex:'AAPL · NVDA · TSLA' },
+              { flag:<img src="https://flagcdn.com/w40/in.png" className="w-8 h-6 rounded object-cover" alt="IN"/>, name:'India (NSE)', ex:'RELIANCE.NS · TCS.NS' },
+              { flag:<span className="text-3xl">🌐</span>,                                                           name:'Forex',        ex:'EURUSD · GBPJPY · USDJPY' },
+              { flag:<span className="text-3xl">₿</span>,                                                            name:'Crypto',       ex:'BTCUSD · ETHUSD · SOL' },
+              { flag:<img src="https://flagcdn.com/w40/de.png" className="w-8 h-6 rounded object-cover" alt="DE"/>, name:'Germany',      ex:'SAP.DE · BMW.DE · SIE.DE' },
+              { flag:<img src="https://flagcdn.com/w40/gb.png" className="w-8 h-6 rounded object-cover" alt="GB"/>, name:'UK (LSE)',      ex:'SHEL.L · HSBA.L · BP.L' },
+              { flag:<img src="https://flagcdn.com/w40/jp.png" className="w-8 h-6 rounded object-cover" alt="JP"/>, name:'Japan (TSE)',  ex:'7203.T · 6758.T · 9984.T' },
+              { flag:<span className="text-3xl">📊</span>,                                                           name:'Indices',      ex:'SPX500 · DAX40 · NIKKEI' },
             ].map((m, i) => (
               <Reveal key={m.name} delay={i * 0.05} direction="scale">
                 <motion.div whileHover={{ scale: 1.04, borderColor: 'rgba(139,92,246,0.5)' }}
                   className="rounded-2xl border border-white/8 bg-white/3 p-5 cursor-default transition-colors">
-                  <div className="text-3xl mb-3">{m.flag}</div>
+                  <div className="mb-3 h-8 flex items-center">{m.flag}</div>
                   <div className="font-bold text-white mb-1">{m.name}</div>
                   <div className="text-xs text-gray-500 font-mono">{m.ex}</div>
                 </motion.div>
