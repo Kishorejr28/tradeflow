@@ -9,12 +9,13 @@ import { format } from 'date-fns'
 import { useAppStore } from '@/store/appStore'
 import { useNavigate } from 'react-router-dom'
 import PracticeMode from '@/components/trading/PracticeMode'
+import TFChart from '@/components/trading/TFChart'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const SYMBOLS = ['EURUSD','GBPUSD','USDJPY','AUDUSD','USDCAD','USDCHF','NZDUSD','XAUUSD','GBPJPY','EURJPY','EURGBP','GBPCHF']
 
-const TV_SYMBOL: Record<string,string> = { XAUUSD:'TVC:GOLD', GBPJPY:'FX:GBPJPY', EURJPY:'FX:EURJPY', EURGBP:'FX:EURGBP', GBPCHF:'FX:GBPCHF' }
-const tvSym = (s: string) => TV_SYMBOL[s] ?? `FX:${s}`
+
+
 const dec = (s: string) => s.includes('JPY') || s === 'XAUUSD' ? 2 : 4
 const SPREADS: Record<string,number> = { EURUSD:0.8,GBPUSD:1.2,USDJPY:0.9,AUDUSD:1.1,XAUUSD:3.5,USDCAD:1.4,USDCHF:1.6,NZDUSD:1.8,GBPJPY:2.1,EURJPY:1.4,EURGBP:1.3,GBPCHF:2.4 }
 
@@ -28,42 +29,7 @@ const LAYOUTS: { id: Layout; icon: string; label: string; slots: number }[] = [
 
 interface Alert { id:string; symbol:string; price:number; condition:'above'|'below'; triggered:boolean; note:string }
 
-// ── TradingView Widget ─────────────────────────────────────────────────────────
-function TVChart({ symbol, height }: { symbol: string; height?: number }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const { theme } = useAppStore()
-
-  useEffect(() => {
-    if (!ref.current) return
-    ref.current.innerHTML = ''
-    const s = document.createElement('script')
-    s.type = 'text/javascript'
-    s.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'
-    s.async = true
-    s.innerHTML = JSON.stringify({
-      autosize: true,
-      symbol: tvSym(symbol),
-      interval: '15',
-      timezone: 'Etc/UTC',
-      theme: theme === 'dark' ? 'dark' : 'light',
-      style: '1',
-      locale: 'en',
-      withdateranges: true,
-      hide_side_toolbar: false,
-      allow_symbol_change: true,
-      save_image: false,
-      calendar: false,
-      hide_volume: false,
-      support_host: 'https://www.tradingview.com',
-    })
-    ref.current.appendChild(s)
-    return () => { if (ref.current) ref.current.innerHTML = '' }
-  }, [symbol, theme])
-
-  return <div ref={ref} className="tradingview-widget-container w-full h-full" />
-}
-
-// ── Chart Slot (symbol picker + chart) ────────────────────────────────────────
+// ── Chart Slot (symbol picker + our chart) ────────────────────────────────────
 function ChartSlot({ symbol, onSymbolChange, prices }: {
   symbol: string
   onSymbolChange: (s: string) => void
@@ -99,7 +65,7 @@ function ChartSlot({ symbol, onSymbolChange, prices }: {
           </>
         )}
       </div>
-      <div className="flex-1 min-h-0"><TVChart symbol={symbol} /></div>
+      <div className="flex-1 min-h-0"><TFChart symbol={symbol} /></div>
     </div>
   )
 }
