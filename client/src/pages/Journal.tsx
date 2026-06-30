@@ -115,7 +115,7 @@ function PostTradePopup({ trade, onClose }: { trade: PostTradeModal; onClose: ()
 
 export default function Journal() {
   const isDemo = useIsDemo()
-  const { addLocalTrade, addLocalNote, localTrades, localNotes } = useAppStore()
+  const { addLocalTrade, addLocalNote, localTrades, localNotes, trades } = useAppStore()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [showDemo, setShowDemo] = useState(false)
   const [selected, setSelected] = useState<typeof DEMO_ENTRIES[0] | null>(null)
@@ -124,13 +124,29 @@ export default function Journal() {
 
   // Merge demo entries with user entries for display
   const demoEntries = isDemo ? DEMO_ENTRIES : []
+
+  // Manual entries from localStorage
   const userTradeEntries = localTrades.map(t => ({
     date: t.date, symbol: t.symbol,
     direction: t.direction as 'long' | 'short',
     pnl: t.pnl, planFollowed: t.planFollowed,
     emotion: t.emotion, note: t.note,
   }))
-  const entries = [...demoEntries, ...userTradeEntries]
+
+  // Bot trades from Supabase (appStore.trades — loaded on login)
+  const botTradeEntries = (trades || [])
+    .filter((t: any) => t.status === 'closed' && t.exit_time)
+    .map((t: any) => ({
+      date: t.exit_time?.slice(0, 10) || t.entry_time?.slice(0, 10),
+      symbol: t.symbol,
+      direction: t.direction as 'long' | 'short',
+      pnl: t.pnl || 0,
+      planFollowed: true,
+      emotion: 'neutral' as const,
+      note: t.note || '',
+    }))
+
+  const entries = [...demoEntries, ...userTradeEntries, ...botTradeEntries]
 
   const handleAddTrade = (t: ManualTrade) => { addLocalTrade(t) }
   const handleAddJournal = (entry: { title: string; content: string; date: string }) => {

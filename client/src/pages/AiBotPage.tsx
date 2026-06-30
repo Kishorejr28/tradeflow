@@ -249,15 +249,24 @@ export default function AiBotPage() {
   // ── offline ──────────────────────────────────────────────────────────────
   if (!loading && offline) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400 py-20">
+      <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400 py-20 px-6">
         <WifiOff size={40} className="text-slate-600" />
-        <p className="text-lg font-semibold">AI Bot API Offline</p>
-        <p className="text-sm text-center max-w-sm text-slate-500">
-          The local API server isn't reachable. Make sure it's running on your machine.
+        <p className="text-lg font-semibold text-white">AI Bot API Offline</p>
+        <p className="text-sm text-center max-w-md text-slate-400">
+          The bot API runs locally on your machine — it's not accessible from the deployed website.
         </p>
-        <code className="bg-[#1a1f2e] border border-[#2a2f3e] rounded-lg px-4 py-2 text-xs text-emerald-400">
-          python trading_bot/api/bot_api.py
-        </code>
+        <div className="bg-[#1a1f2e] border border-[#2a2f3e] rounded-xl p-5 max-w-md w-full text-sm">
+          <p className="text-white font-semibold mb-3">To see live bot data:</p>
+          <ol className="space-y-2 text-slate-400 list-decimal list-inside">
+            <li>Make sure the bot API is running on your PC:
+              <code className="block mt-1 bg-[#0e1117] px-3 py-1.5 rounded text-emerald-400 text-xs">python trading_bot/api/bot_api.py</code>
+            </li>
+            <li>Open TradeFlow on your local machine:
+              <code className="block mt-1 bg-[#0e1117] px-3 py-1.5 rounded text-blue-400 text-xs">http://localhost:5173</code>
+            </li>
+          </ol>
+          <p className="text-xs text-slate-500 mt-3">The deployed site (Vercel) can't reach your local port 8000.</p>
+        </div>
         <button onClick={load} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition">
           <RefreshCw size={14} /> Retry Connection
         </button>
