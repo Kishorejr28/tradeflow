@@ -462,9 +462,13 @@ export default function AiBotPage() {
         // Build livePos from Supabase positions (has unrealized_pnl)
         const map: Record<string, any> = {}
         for (const p of supaResult.summary.open_trades || []) {
-          if (p.pnl_dollars !== null) {
+          if ((p as any).current_price !== null || p.pnl_dollars !== null) {
             const sym = p.instrument.replace('/', '')
-            const live = { current_price: p.entry_price, unrealized_pl: p.pnl_dollars, unrealized_plpc: p.pnl_percent || 0 }
+            const live = {
+              current_price:   (p as any).current_price ?? p.entry_price,
+              unrealized_pl:   p.pnl_dollars ?? 0,
+              unrealized_plpc: p.pnl_percent ?? 0,
+            }
             map[sym] = live
             map[p.instrument] = live
           }
@@ -620,9 +624,18 @@ export default function AiBotPage() {
                 {open_trades.length ? open_trades.map(t => {
                   const alpacaSym  = t.instrument.replace('/', '')
                   const live       = livePos[alpacaSym] || livePos[t.instrument]
-                  const currPrice  = live ? parseFloat(live.current_price)   : null
+                  // current_price: use live Alpaca price, or derive from unrealized_pnl
+                  let currPrice: number | null = live ? parseFloat(live.current_price) : null
                   const unrealPnl  = live ? parseFloat(live.unrealized_pl)   : null
                   const unrealPct  = live ? parseFloat(live.unrealized_plpc) * 100 : null
+
+                  // If current_price is missing but we have unrealised P&L, derive it
+                  if (!currPrice && unrealPnl !== null && t.position_size > 0) {
+                    const pnlPerUnit = unrealPnl / t.position_size
+                    currPrice = t.direction === 'long'
+                      ? t.entry_price + pnlPerUnit
+                      : t.entry_price - pnlPerUnit
+                  }
                   const isLong     = t.direction === 'long'
                   const pnlColor   = unrealPnl === null ? 'text-slate-400'
                                    : unrealPnl >= 0 ? 'text-emerald-400' : 'text-red-400'
