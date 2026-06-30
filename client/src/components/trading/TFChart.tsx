@@ -12,6 +12,7 @@ import {
 import { useAppStore } from '@/store/appStore'
 import { fetchCandles } from '@/lib/marketData'
 import type { OHLCV } from '@/pages/Replay'
+import { assetDp } from '@/pages/Replay'
 
 // ── Indicator math ─────────────────────────────────────────────────────────────
 function calcSMA(d: OHLCV[], p: number) {
@@ -284,10 +285,16 @@ export default function TFChart({ symbol }: TFChartProps) {
     const chart = createChart(mainDiv.current!, baseOpts(mainH, !hasSubA))
     chartRef.current = chart
 
+    const dp = assetDp(symbol)
+    const minMoveMap: Record<number,number> = {5:0.00001,4:0.0001,3:0.001,2:0.01,1:0.1,0:1}
+    const minMove = minMoveMap[dp] ?? 0.01
+    const priceFormat = { type: 'price' as const, precision: dp, minMove }
+
     const candles = chart.addCandlestickSeries({
       upColor:'#26a69a', downColor:'#ef5350',
       borderUpColor:'#26a69a', borderDownColor:'#ef5350',
       wickUpColor:'#26a69a', wickDownColor:'#ef5350',
+      priceFormat,
     })
     candles.setData(data)
 
