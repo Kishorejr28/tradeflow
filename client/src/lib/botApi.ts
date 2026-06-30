@@ -1,7 +1,9 @@
-// Bot API client — fetches data from the local FastAPI server (port 8000)
-// The Python trading bot must be running for this to work.
+// Secure Bot API client
+// Sends X-API-Key header on every request.
+// API URL and key are configured via Vite env vars so they never hard-code.
 
-const BASE = "http://localhost:8000";
+const BASE = import.meta.env.VITE_BOT_API_URL || "http://localhost:8000"
+const KEY  = import.meta.env.VITE_BOT_API_KEY  || ""
 
 export interface BotSnapshot {
   equity: number;
@@ -73,29 +75,51 @@ export interface BotSummary {
   stats: BotStats;
 }
 
-async function fetchJson<T>(path: string): Promise<T | null> {
+// ── Secure fetch — always sends X-API-Key ─────────────────────────────────────
+async function fetchJson<T>(path: string, options?: RequestInit): Promise<T | null> {
   try {
-    const res = await fetch(`${BASE}${path}`, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return null;
-    return res.json();
+    const res = await fetch(`${BASE}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(KEY ? { "X-API-Key": KEY } : {}),
+        ...options?.headers,
+      },
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) return null
+    return res.json()
   } catch {
-    return null;
+    return null
   }
 }
 
 export const botApi = {
-  getSummary: () => fetchJson<BotSummary>("/summary"),
-  getStatus:  () => fetchJson<BotSnapshot>("/status"),
+  getSummary:  () => fetchJson<BotSummary>("/summary"),
+  getStatus:   () => fetchJson<BotSnapshot>("/status"),
   getOpenTrades:   () => fetchJson<BotTrade[]>("/trades/open"),
   getClosedTrades: (strategy?: string, instrument?: string, limit = 100) => {
-    const params = new URLSearchParams({ limit: String(limit) });
-    if (strategy)   params.set("strategy",   strategy);
-    if (instrument) params.set("instrument", instrument);
-    return fetchJson<BotTrade[]>(`/trades/closed?${params}`);
+    const params = new URLSearchParams({ limit: String(limit) })
+    if (strategy)   params.set("strategy",   strategy)
+    if (instrument) params.set("instrument", instrument)
+    return fetchJson<BotTrade[]>(`/trades/closed?${params}`)
   },
   getAlerts: (level?: string, limit = 100) => {
-    const params = new URLSearchParams({ limit: String(limit) });
-    if (level) params.set("level", level);
-    return fetchJson<BotAlert[]>(`/alerts?${params}`);
+    const params = new URLSearchParams({ limit: String(limit) })
+    if (level) params.set("level", level)
+    return fetchJson<BotAlert[]>(`/alerts?${params}`)
   },
-};
+  getAlpacaPositions: () => fetchJson<any[]>("/alpaca/positions"),
+  closePosition: (symbol: string) =>
+    fetchJson<any>(`/alpaca/positions/${symbol}`, { method: "DELETE" }),
+
+  /** Ping the health endpoint (no auth required) to check if API is reachable */
+  isAvailable: async (): Promise<boolean> => {
+    try {
+      const res = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(3000) })
+      return res.ok
+    } catch {
+      return false
+    }
+  },
+}

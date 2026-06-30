@@ -49,15 +49,23 @@ function CloseButton({
     setError('')
     try {
       const symbol = instrument.replace('/', '')
-      const res = await fetch(`http://localhost:8000/alpaca/positions/${symbol}`, {
-        method: 'DELETE',
-        signal: AbortSignal.timeout(10_000),
-      })
-      if (res.ok) {
+      // Use secure botApi (sends X-API-Key header)
+      const result = await fetch(
+        (import.meta.env.VITE_BOT_API_URL || 'http://localhost:8000') + `/alpaca/positions/${symbol}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'X-API-Key': import.meta.env.VITE_BOT_API_KEY || '',
+            'Content-Type': 'application/json',
+          },
+          signal: AbortSignal.timeout(10_000),
+        }
+      )
+      if (result.ok) {
         setState('done')
         setTimeout(onClosed, 1000)
       } else {
-        const d = await res.json().catch(() => ({}))
+        const d = await result.json().catch(() => ({}))
         setError(d.detail || 'Close failed')
         setState('confirm')
       }
@@ -330,7 +338,13 @@ export default function AiBotPage() {
       setOffline(false)
       // Fetch live Alpaca positions for unrealised P&L
       try {
-        const alpacaRes = await fetch('http://localhost:8000/alpaca/positions', { signal: AbortSignal.timeout(5000) })
+        const alpacaRes = await fetch(
+          (import.meta.env.VITE_BOT_API_URL || 'http://localhost:8000') + '/alpaca/positions',
+          {
+            headers: { 'X-API-Key': import.meta.env.VITE_BOT_API_KEY || '' },
+            signal: AbortSignal.timeout(5000),
+          }
+        )
         if (alpacaRes.ok) {
           const alpacaPos: any[] = await alpacaRes.json()
           // Key by symbol (BTCUSD → BTC/USD mapping)
