@@ -228,15 +228,43 @@ function TradeList({ trades }: { trades: BotSummary['recent_closed'] }) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function AiBotPage() {
-  const [data,    setData]    = useState<BotSummary | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [offline, setOffline] = useState(false)
-  const [tab,     setTab]     = useState<'overview' | 'analytics' | 'trades' | 'strategies' | 'log'>('overview')
+  const [data,       setData]       = useState<BotSummary | null>(null)
+  const [livePos,    setLivePos]    = useState<Record<string, any>>({})
+  const [loading,    setLoading]    = useState(true)
+  const [offline,    setOffline]    = useState(false)
+  const [tab,        setTab]        = useState<'overview' | 'analytics' | 'trades' | 'strategies' | 'log'>('overview')
 
   const load = useCallback(async () => {
-    const result = await botApi.getSummary()
-    if (result) { setData(result); setOffline(false) }
-    else setOffline(true)
+    const [result, positions] = await Promise.all([
+      botApi.getSummary(),
+      botApi.getOpenTrades(),  // we'll also call /alpaca/positions for live P&L
+    ])
+    if (result) {
+      setData(result)
+      setOffline(false)
+      // Fetch live Alpaca positions for unrealised P&L
+      try {
+        const alpacaRes = await fetch('http://localhost:8000/alpaca/positions', { signal: AbortSignal.timeout(5000) })
+        if (alpacaRes.ok) {
+          const alpacaPos: any[] = await alpacaRes.json()
+          // Key by symbol (BTCUSD → BTC/USD mapping)
+          const map: Record<string, any> = {}
+          for (const p of alpacaPos) {
+            const sym = p.symbol.replace(/([A-Z]{3,4})(USD[CT]?)$/, '$1/$2').replace('/USDT','/ USD').replace('/USDC','/USD')
+            // simple: just key by raw symbol too
+            map[p.symbol] = p
+            // also key as "BTC/USD" format
+            const withSlash = p.symbol.length > 3
+              ? p.symbol.slice(0, p.symbol.length - 3) + '/' + p.symbol.slice(-3)
+              : p.symbol
+            map[withSlash] = p
+          }
+          setLivePos(map)
+        }
+      } catch { /* non-blocking */ }
+    } else {
+      setOffline(true)
+    }
     setLoading(false)
   }, [])
 
@@ -368,21 +396,82 @@ export default function AiBotPage() {
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Open Positions ({open_trades.length})</p>
               <div className="bg-[#1a1f2e] border border-[#2a2f3e] rounded-xl overflow-hidden">
-                {open_trades.length ? open_trades.map(t => (
-                  <div key={t.trade_id} className="flex items-center justify-between px-4 py-3 border-b border-[#1e2330] last:border-0">
-                    <div className="flex items-center gap-3">
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded ${t.direction==='long'?'bg-emerald-400/20 text-emerald-400':'bg-red-400/20 text-red-400'}`}>{t.direction.toUpperCase()}</span>
-                      <div>
-                        <p className="text-sm font-semibold text-white">{t.instrument}</p>
-                        <p className="text-xs text-slate-500">{t.strategy_name.replace(/_/g,' ')}</p>
+                {open_trades.length ? open_trades.map(t => {
+                  // Look up live Alpaca data for this position
+                  const alpacaSym  = t.instrument.replace('/', '')
+                  const live       = livePos[alpacaSym] || livePos[t.instrument]
+                  const currPrice  = live ? parseFloat(live.current_price)   : null
+                  const unrealPnl  = live ? parseFloat(live.unrealized_pl)   : null
+                  const unrealPct  = live ? parseFloat(live.unrealized_plpc) * 100 : null
+                  const isLong     = t.direction === 'long'
+                  const pnlColor   = unrealPnl === null ? 'text-slate-400'
+                                   : unrealPnl >= 0 ? 'text-emerald-400' : 'text-red-400'
+
+                  // Progress bar: how far price has moved toward TP from entry
+                  const entryP = t.entry_price
+                  const tpP    = t.take_profit
+                  const slP    = t.stop_loss
+                  const progress = currPrice && tpP ? (
+                    isLong
+                      ? Math.min(100, Math.max(0, (currPrice - entryP) / (tpP - entryP) * 100))
+                      : Math.min(100, Math.max(0, (entryP - currPrice) / (entryP - tpP) * 100))
+                  ) : null
+
+                  return (
+                    <div key={t.trade_id} className="px-4 py-3 border-b border-[#1e2330] last:border-0">
+                      <div className="flex items-center justify-between">
+                        {/* Left: direction badge + instrument + strategy */}
+                        <div className="flex items-center gap-3">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded ${isLong ? 'bg-emerald-400/20 text-emerald-400' : 'bg-red-400/20 text-red-400'}`}>
+                            {t.direction.toUpperCase()}
+                          </span>
+                          <div>
+                            <p className="text-sm font-semibold text-white">{t.instrument}</p>
+                            <p className="text-xs text-slate-500">{t.strategy_name.replace(/_/g, ' ')}</p>
+                          </div>
+                        </div>
+
+                        {/* Right: live P&L (big) + price info */}
+                        <div className="text-right">
+                          {unrealPnl !== null ? (
+                            <>
+                              <p className={`text-base font-bold ${pnlColor}`}>
+                                {unrealPnl >= 0 ? '+' : ''}{fmt$(unrealPnl)}
+                              </p>
+                              <p className={`text-xs ${pnlColor}`}>
+                                {unrealPct !== null ? `${unrealPct >= 0 ? '+' : ''}${unrealPct.toFixed(2)}%` : ''}
+                                {currPrice !== null ? ` · $${currPrice.toFixed(currPrice > 100 ? 2 : 4)}` : ''}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-sm text-slate-400">P&L loading…</p>
+                          )}
+                          <p className="text-xs text-slate-600 mt-0.5">
+                            Entry ${entryP.toFixed(entryP > 100 ? 2 : 4)}
+                            {tpP ? ` · TP $${tpP.toFixed(tpP > 100 ? 2 : 4)}` : ' · Trailing'}
+                          </p>
+                        </div>
                       </div>
+
+                      {/* Progress bar toward TP */}
+                      {progress !== null && tpP && (
+                        <div className="mt-2">
+                          <div className="flex justify-between text-[10px] text-slate-600 mb-0.5">
+                            <span>SL ${slP.toFixed(slP > 100 ? 2 : 4)}</span>
+                            <span className="text-slate-500">{progress.toFixed(0)}% to TP</span>
+                            <span>TP ${tpP.toFixed(tpP > 100 ? 2 : 4)}</span>
+                          </div>
+                          <div className="h-1.5 bg-[#2a2f3e] rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${unrealPnl !== null && unrealPnl >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`}
+                              style={{ width: `${Math.max(2, progress)}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm text-white">${t.entry_price.toFixed(2)}</p>
-                      <p className="text-xs text-slate-500">SL ${t.stop_loss.toFixed(2)}{t.take_profit ? ` · TP $${t.take_profit.toFixed(2)}` : ' · Trailing'}</p>
-                    </div>
-                  </div>
-                )) : <p className="text-sm text-slate-500 text-center py-6">No open positions</p>}
+                  )
+                }) : <p className="text-sm text-slate-500 text-center py-6">No open positions</p>}
               </div>
             </div>
 
