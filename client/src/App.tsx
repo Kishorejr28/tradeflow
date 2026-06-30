@@ -18,6 +18,7 @@ import News from '@/pages/News'
 import Sanctuary from '@/pages/Sanctuary'
 import Settings from '@/pages/Settings'
 import AdminDashboard from '@/pages/AdminDashboard'
+import AiBotPage from '@/pages/AiBotPage'
 
 const ADMIN_EMAIL = 'kishorejr28@gmail.com'
 
@@ -37,7 +38,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AuthHandler() {
-  const { setUser, setUserPlan, setShowTutorial, seenTutorial } = useAppStore()
+  const { setUser, setUserPlan, setShowTutorial, seenTutorial, setTrades } = useAppStore()
   const user = useAppStore(s => s.user)
   const navigate = useNavigate()
   const location = useLocation()
@@ -62,6 +63,17 @@ function AuthHandler() {
       if (supaUser.email === ADMIN_EMAIL) setUserPlan('admin')
       else setUserPlan('free')
     }
+
+    // Fetch trades from Supabase so Journal + Dashboard can display them
+    try {
+      const { data } = await supabase
+        .from('trades')
+        .select('*')
+        .eq('user_id', supaUser.id)
+        .order('entry_time', { ascending: false })
+        .limit(200)
+      if (data) setTrades(data as any)
+    } catch { /* non-blocking */ }
 
     if (!seenTutorial[supaUser.id]) setShowTutorial(true)
 
@@ -140,6 +152,7 @@ export default function App() {
           <Route path="news"       element={<News />} />
           <Route path="sanctuary"  element={<Sanctuary />} />
           <Route path="settings"   element={<Settings />} />
+          <Route path="aibot"      element={<AiBotPage />} />
         </Route>
         {/* Admin — protected, requires admin email or plan */}
         <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />

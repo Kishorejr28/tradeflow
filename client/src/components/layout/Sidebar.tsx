@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, TrendingUp, BookOpen, FileText, NotebookPen,
   Newspaper, Leaf, Settings, ChevronLeft, Moon, Sun, LogOut,
-  History, Shield, Sparkles, ArrowRight,
+  History, Shield, Sparkles, ArrowRight, Bot,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAppStore, PLAN_NAMES, PLAN_COLORS } from '@/store/appStore'
@@ -10,13 +10,14 @@ import UpgradeModal from '@/components/ui/UpgradeModal'
 
 const NAV = [
   { to: '/app/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/app/trading',   icon: TrendingUp,     label: 'Trading' },
-  { to: '/app/replay',    icon: History,         label: 'Replay' },
-  { to: '/app/edge',      icon: BookOpen,        label: 'Edge' },
-  { to: '/app/journal',   icon: FileText,        label: 'Journal' },
-  { to: '/app/notebook',  icon: NotebookPen,     label: 'Notebook' },
-  { to: '/app/news',      icon: Newspaper,       label: 'News' },
-  { to: '/app/sanctuary', icon: Leaf,            label: 'Sanctuary' },
+  { to: '/app/trading',   icon: TrendingUp,      label: 'Trading' },
+  { to: '/app/aibot',     icon: Bot,             label: 'AI Bot' },
+  { to: '/app/replay',    icon: History,          label: 'Replay' },
+  { to: '/app/edge',      icon: BookOpen,         label: 'Edge' },
+  { to: '/app/journal',   icon: FileText,         label: 'Journal' },
+  { to: '/app/notebook',  icon: NotebookPen,      label: 'Notebook' },
+  { to: '/app/news',      icon: Newspaper,        label: 'News' },
+  { to: '/app/sanctuary', icon: Leaf,             label: 'Sanctuary' },
 ]
 
 export default function Sidebar() {
