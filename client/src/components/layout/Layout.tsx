@@ -6,7 +6,8 @@ export default function Layout() {
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-[#0f0f0f]">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto">
+      {/* pt-14 on mobile gives space for the fixed hamburger button */}
+      <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
         <Outlet />
       </main>
       <TutorialModal />

@@ -163,7 +163,7 @@ export default function Journal() {
   const entryMap = entries.reduce((m, e) => { m[e.date] = e; return m }, {} as Record<string, typeof DEMO_ENTRIES[0]>)
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 md:p-6 max-w-6xl mx-auto">
       {showAddTrade && <AddTradeModal onSave={handleAddTrade} onClose={() => setShowAddTrade(false)} />}
       {showAddJournal && <AddJournalModal onSave={handleAddJournal} onClose={() => setShowAddJournal(false)} />}
       {showDemo && (
@@ -196,7 +196,7 @@ export default function Journal() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-6">
         {/* Calendar */}
         <div className="xl:col-span-2 card p-5">
           <div className="flex items-center justify-between mb-5">

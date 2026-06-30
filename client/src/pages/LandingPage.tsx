@@ -268,7 +268,7 @@ export default function LandingPage() {
 
       {/* ── Nav ─────────────────────────────────────────────────────────── */}
       <nav className="fixed top-0 inset-x-0 z-50 bg-[#0a0a0f]/80 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-brand-500 flex items-center justify-center">
               <TrendingUp className="w-4 h-4 text-white" />
@@ -280,22 +280,22 @@ export default function LandingPage() {
               <a key={item} href={`#${item.toLowerCase()}`} className="hover:text-white transition">{item}</a>
             ))}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             {isLoggedIn ? (
               <>
-                <span className="text-sm text-gray-400">
+                <span className="hidden sm:block text-sm text-gray-400">
                   {user?.full_name?.split(' ')[0] || user?.email?.split('@')[0]}
                 </span>
                 <button onClick={goToApp}
-                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg transition shadow-lg shadow-brand-500/20">
-                  Go to dashboard →
+                  className="px-3 md:px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg transition shadow-lg shadow-brand-500/20">
+                  Dashboard →
                 </button>
               </>
             ) : (
               <>
-                <button onClick={goToAuth} className="text-sm text-gray-400 hover:text-white transition">Sign in</button>
+                <button onClick={goToAuth} className="hidden sm:block text-sm text-gray-400 hover:text-white transition">Sign in</button>
                 <button onClick={goToAuth}
-                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg transition shadow-lg shadow-brand-500/20">
+                  className="px-3 md:px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-lg transition shadow-lg shadow-brand-500/20">
                   Get started free
                 </button>
               </>
@@ -305,34 +305,34 @@ export default function LandingPage() {
       </nav>
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="pt-32 pb-20 px-6 relative overflow-hidden">
+      <section className="pt-24 md:pt-32 pb-16 md:pb-20 px-4 md:px-6 relative overflow-hidden">
         <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-brand-500/10 blur-[120px] rounded-full pointer-events-none" />
         <div className="max-w-5xl mx-auto text-center relative">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-medium mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-medium mb-6 md:mb-8">
             <Zap className="w-3 h-3" /> Free alternative to FXReplay · No credit card needed
           </div>
-          <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 leading-none">
+          <h1 className="text-4xl md:text-7xl font-bold tracking-tight mb-4 md:mb-6 leading-tight md:leading-none">
             Practice trading.<br />
             <span className="bg-gradient-to-r from-brand-400 to-purple-400 bg-clip-text text-transparent">
               Without losing money.
             </span>
           </h1>
-          <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="text-base md:text-xl text-gray-400 max-w-2xl mx-auto mb-8 md:mb-10 leading-relaxed">
             Chart replay on real historical data. Trading journal. Edge plans.
             Economic calendar. Meditation. Everything a serious trader needs.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 mb-8 md:mb-12">
             <button onClick={goToAuth}
-              className="w-full sm:w-auto px-8 py-4 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl transition shadow-2xl shadow-brand-500/30 flex items-center gap-2 justify-center text-lg">
+              className="w-full sm:w-auto px-6 md:px-8 py-3.5 md:py-4 bg-brand-500 hover:bg-brand-600 text-white font-bold rounded-xl transition shadow-2xl shadow-brand-500/30 flex items-center gap-2 justify-center text-base md:text-lg">
               Start for free <ArrowRight className="w-5 h-5" />
             </button>
             <button onClick={demoLogin}
-              className="w-full sm:w-auto px-8 py-4 bg-white/5 hover:bg-white/10 text-white font-medium rounded-xl border border-white/10 transition flex items-center gap-2 justify-center">
+              className="w-full sm:w-auto px-6 md:px-8 py-3.5 md:py-4 bg-white/5 hover:bg-white/10 text-white font-medium rounded-xl border border-white/10 transition flex items-center gap-2 justify-center">
               <Play className="w-4 h-4 text-brand-400 fill-brand-400" /> Try demo instantly
             </button>
           </div>
           <p className="text-xs text-gray-600">No credit card · No account needed for demo · Free plan available</p>
-          <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="mt-10 md:mt-16 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
             {STATS.map(s => (
               <div key={s.label} className="bg-white/5 border border-white/5 rounded-2xl p-6">
                 <div className="text-4xl font-bold text-white mb-1">{s.value}</div>
@@ -344,16 +344,16 @@ export default function LandingPage() {
       </section>
 
       {/* ── Features ─────────────────────────────────────────────────────── */}
-      <section id="features" className="py-24 px-6 border-t border-white/5">
+      <section id="features" className="py-16 md:py-24 px-4 md:px-6 border-t border-white/5">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4">Everything you need to trade better</h2>
-            <p className="text-gray-400 text-lg max-w-xl mx-auto">Six tools built for serious traders — all in one platform.</p>
+          <div className="text-center mb-10 md:mb-16">
+            <h2 className="text-2xl md:text-4xl font-bold mb-3 md:mb-4">Everything you need to trade better</h2>
+            <p className="text-gray-400 text-base md:text-lg max-w-xl mx-auto">Six tools built for serious traders — all in one platform.</p>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {FEATURES.map(f => (
               <div key={f.title}
-                className="bg-white/3 border border-white/5 rounded-2xl p-6 hover:bg-white/5 hover:border-white/10 transition">
+                className="bg-white/3 border border-white/5 rounded-2xl p-5 md:p-6 hover:bg-white/5 hover:border-white/10 transition">
                 <div className={`w-12 h-12 rounded-xl ${f.bg} flex items-center justify-center mb-4`}>
                   <f.icon className={`w-6 h-6 ${f.color}`} />
                 </div>
@@ -409,7 +409,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Markets ──────────────────────────────────────────────────────── */}
-      <section id="markets" className="py-24 px-6 border-t border-white/5">
+      <section id="markets" className="py-16 md:py-24 px-4 md:px-6 border-t border-white/5">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs font-medium mb-6">
@@ -421,7 +421,7 @@ export default function LandingPage() {
               Indian stocks, German equities, Japanese, Korean, Brazilian — all supported.
             </p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
             {MARKETS.map(m => (
               <div key={m.name} className="bg-white/3 border border-white/5 rounded-xl p-4 hover:bg-white/5 transition">
                 <div className="text-2xl mb-2">{m.flag}</div>
@@ -463,7 +463,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Pricing ──────────────────────────────────────────────────────── */}
-      <section id="pricing" className="py-24 px-6 border-t border-white/5">
+      <section id="pricing" className="py-16 md:py-24 px-4 md:px-6 border-t border-white/5">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold mb-4">Simple, honest pricing</h2>

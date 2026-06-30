@@ -473,7 +473,7 @@ export default function Dashboard() {
   const noTrades = trades.length === 0
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto">
       {showAddTrade && <AddTradeModal onSave={handleAddTrade} onClose={() => setShowAddTrade(false)} />}
       {showTour && <FeatureTour onClose={() => {
         setShowTour(false)
@@ -546,16 +546,16 @@ export default function Dashboard() {
       )}
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
         <StatCard label="Account Balance" value={noTrades ? '—' : formatCurrency(balance)} sub="Live account" icon={Activity} empty={noTrades} />
         <StatCard label="Total P&L" value={noTrades ? '—' : formatCurrency(monthStats.totalPnl)} sub="This month" icon={monthStats.totalPnl >= 0 ? TrendingUp : TrendingDown} trend={noTrades ? 'neutral' : monthStats.totalPnl >= 0 ? 'up' : 'down'} empty={noTrades} />
         <StatCard label="Win Rate" value={noTrades ? '—' : `${monthStats.winRate}%`} sub={noTrades ? 'No trades' : `${monthStats.totalTrades} trades`} icon={Target} trend={noTrades ? 'neutral' : monthStats.winRate >= 50 ? 'up' : 'down'} empty={noTrades} />
         <StatCard label="Avg R Per Trade" value={noTrades ? '—' : `${monthStats.avgR}R`} sub="This month" icon={ArrowUpRight} trend={noTrades ? 'neutral' : parseFloat(monthStats.avgR) > 0 ? 'up' : 'down'} empty={noTrades} />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-6">
         {/* Calendar */}
-        <div className="xl:col-span-2 card p-5">
+        <div className="xl:col-span-2 card p-4 md:p-5">
           <div className="flex items-center justify-between mb-5">
             <h2 className="font-semibold text-gray-900 dark:text-white">{format(currentMonth, 'MMMM yyyy')}</h2>
             <div className="flex items-center gap-1">

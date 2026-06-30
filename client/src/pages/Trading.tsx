@@ -852,7 +852,7 @@ export default function Trading() {
         </div>
 
         {/* Positions/History strip */}
-        <div className="border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-[#141414] shrink-0" style={{ height: 150 }}>
+        <div className="border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-[#141414] shrink-0" style={{ height: 'clamp(120px, 20vh, 180px)' }}>
           <div className="flex items-center gap-4 px-4 py-1.5 border-b border-gray-100 dark:border-gray-800">
             {(['positions','history'] as const).map(t => (
               <button key={t} onClick={() => setActiveTab(t)}
@@ -927,7 +927,7 @@ export default function Trading() {
         )}
       </div>
       {!practiceMode && (
-      <div className="w-52 border-l border-gray-100 dark:border-gray-800 flex flex-col bg-white dark:bg-[#141414] shrink-0">
+      <div className="hidden md:flex w-52 border-l border-gray-100 dark:border-gray-800 flex-col bg-white dark:bg-[#141414] shrink-0">
         {/* Sidebar tab switcher */}
         <div className="flex border-b border-gray-100 dark:border-gray-800 shrink-0">
           {([
