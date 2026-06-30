@@ -127,7 +127,18 @@ function CloseButton({
   )
 }
 
-// ── Daily P&L chart ───────────────────────────────────────────────────────────
+// ── Custom dark tooltip for P&L charts ───────────────────────────────────────
+function PnlTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  const val = Number(payload[0]?.value ?? 0)
+  const color = val >= 0 ? '#26a69a' : '#ef5350'
+  return (
+    <div style={{ background: '#1e2130', border: '1px solid #2a2f3e', borderRadius: 8, padding: '8px 12px' }}>
+      <p style={{ color: '#9e9e9e', fontSize: 11, marginBottom: 4 }}>{label}</p>
+      <p style={{ color, fontWeight: 700, fontSize: 14 }}>{val >= 0 ? '+' : ''}${val.toFixed(2)}</p>
+    </div>
+  )
+}
 function DailyPnlChart({ trades }: { trades: BotSummary['recent_closed'] }) {
   const all = [...trades].filter(t => t.timestamp_close && t.pnl_dollars !== null)
   const byDay: Record<string, number> = {}
@@ -141,7 +152,7 @@ function DailyPnlChart({ trades }: { trades: BotSummary['recent_closed'] }) {
       <BarChart data={data} margin={{ top: 10, right: 10, bottom: 40, left: 50 }}>
         <XAxis dataKey="day" tick={{ fill: GREY, fontSize: 10 }} angle={-30} textAnchor="end" />
         <YAxis tick={{ fill: GREY, fontSize: 10 }} />
-        <Tooltip contentStyle={{ background: CARD, border: '1px solid #2a2f3e', color: TEXT }} formatter={(v: any) => [`$${Number(v).toFixed(2)}`, 'P&L']} />
+        <Tooltip content={<PnlTooltip />} />
         <ReferenceLine y={0} stroke={GREY} strokeDasharray="3 3" />
         <Bar dataKey="pnl" radius={[3,3,0,0]}>
           {data.map((d, i) => <Cell key={i} fill={d.pnl >= 0 ? GREEN : RED} />)}
@@ -192,7 +203,7 @@ function PnlWithFilter({ trades }: { trades: BotSummary['recent_closed'] }) {
           <BarChart data={chartData} margin={{ top: 10, right: 10, bottom: 40, left: 50 }}>
             <XAxis dataKey="key" tick={{ fill: GREY, fontSize: 10 }} angle={-20} textAnchor="end" />
             <YAxis tick={{ fill: GREY, fontSize: 10 }} />
-            <Tooltip contentStyle={{ background: CARD, border: '1px solid #2a2f3e', color: TEXT }} formatter={(v: any) => [`$${Number(v).toFixed(2)}`, 'P&L']} />
+            <Tooltip content={<PnlTooltip />} />
             <ReferenceLine y={0} stroke={GREY} strokeDasharray="3 3" />
             <Bar dataKey="pnl" radius={[3,3,0,0]}>
               {chartData.map((d, i) => <Cell key={i} fill={d.pnl >= 0 ? GREEN : RED} />)}
