@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { botApi, BotSummary } from '@/lib/botApi'
-import { RefreshCw, WifiOff, Activity, X } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { RefreshCw, WifiOff, Activity, X, Wifi } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
@@ -320,22 +321,114 @@ function TradeList({ trades }: { trades: BotSummary['recent_closed'] }) {
   )
 }
 
+// ── Fetch from Supabase (remote fallback) ────────────────────────────────────
+async function fetchFromSupabase(): Promise<{ summary: Partial<BotSummary>; source: 'supabase' } | null> {
+  try {
+    const [statusRes, posRes, tradesRes] = await Promise.all([
+      supabase.from('bot_status').select('*').eq('id', 1).single(),
+      supabase.from('bot_live_positions').select('*'),
+      supabase.from('trades').select('*').eq('status', 'closed').order('exit_time', { ascending: false }).limit(20),
+    ])
+
+    if (statusRes.error || !statusRes.data) return null
+
+    const s = statusRes.data
+    const positions: any[] = (posRes.data || [])
+    const closed: any[]    = (tradesRes.data || [])
+
+    // Map Supabase rows → BotSummary shape
+    const open_trades = positions.map((p: any) => ({
+      trade_id:       p.trade_id,
+      timestamp_open: p.updated_at,
+      timestamp_close: null,
+      strategy_name:  p.strategy_name,
+      instrument:     p.instrument,
+      direction:      p.direction,
+      entry_price:    p.entry_price,
+      exit_price:     null,
+      stop_loss:      p.stop_loss,
+      take_profit:    p.take_profit,
+      position_size:  p.position_size,
+      pnl_dollars:    p.unrealized_pnl,
+      pnl_percent:    p.unrealized_pct,
+      exit_reason:    null,
+      market_regime:  null,
+      status:         'open' as const,
+    }))
+
+    const recent_closed = closed.map((t: any) => ({
+      trade_id:        t.id,
+      timestamp_open:  t.entry_time,
+      timestamp_close: t.exit_time,
+      strategy_name:   t.note?.match(/Strategy: ([^\s]+)/)?.[1] || 'unknown',
+      instrument:      t.symbol.replace(/([A-Z]{3,4})(USD)$/, '$1/$2'),
+      direction:       t.direction as 'long' | 'short',
+      entry_price:     t.entry_price,
+      exit_price:      t.exit_price,
+      stop_loss:       0,
+      take_profit:     null,
+      position_size:   t.quantity,
+      pnl_dollars:     t.pnl,
+      pnl_percent:     null,
+      exit_reason:     null,
+      market_regime:   null,
+      status:          'closed' as const,
+    }))
+
+    const alerts: any[] = (s.recent_alerts ? JSON.parse(s.recent_alerts) : [])
+      .map((a: any, i: number) => ({ id: i, ...a }))
+
+    const regimes = s.regimes ? JSON.parse(s.regimes) : {}
+
+    return {
+      source: 'supabase',
+      summary: {
+        open_trades,
+        recent_closed,
+        strategies: [],
+        alerts,
+        snapshot: {
+          equity:      s.equity,
+          cash:        s.cash,
+          daily_pnl:   s.daily_pnl,
+          drawdown_pct: 0,
+          regimes,
+          is_running:  s.is_running,
+          last_heartbeat: s.updated_at,
+        } as any,
+        equity_curve: [],
+        stats: {
+          total_trades:  s.total_trades || 0,
+          wins:          s.wins || 0,
+          losses:        (s.total_trades || 0) - (s.wins || 0),
+          win_rate:      s.win_rate || 0,
+          total_pnl:     s.realised_pnl || 0,
+          profit_factor: s.profit_factor || 0,
+        },
+      },
+    }
+  } catch {
+    return null
+  }
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function AiBotPage() {
   const [data,       setData]       = useState<BotSummary | null>(null)
   const [livePos,    setLivePos]    = useState<Record<string, any>>({})
   const [loading,    setLoading]    = useState(true)
   const [offline,    setOffline]    = useState(false)
+  const [dataSource, setDataSource] = useState<'local' | 'supabase' | 'none'>('none')
   const [tab,        setTab]        = useState<'overview' | 'analytics' | 'trades' | 'strategies' | 'log'>('overview')
 
   const load = useCallback(async () => {
-    const [result, positions] = await Promise.all([
-      botApi.getSummary(),
-      botApi.getOpenTrades(),  // we'll also call /alpaca/positions for live P&L
-    ])
-    if (result) {
-      setData(result)
+    // Try local API first (full data, real-time)
+    const localResult = await botApi.getSummary()
+
+    if (localResult) {
+      setData(localResult)
       setOffline(false)
+      setDataSource('local')
       // Fetch live Alpaca positions for unrealised P&L
       try {
         const alpacaRes = await fetch(
@@ -347,13 +440,9 @@ export default function AiBotPage() {
         )
         if (alpacaRes.ok) {
           const alpacaPos: any[] = await alpacaRes.json()
-          // Key by symbol (BTCUSD → BTC/USD mapping)
           const map: Record<string, any> = {}
           for (const p of alpacaPos) {
-            const sym = p.symbol.replace(/([A-Z]{3,4})(USD[CT]?)$/, '$1/$2').replace('/USDT','/ USD').replace('/USDC','/USD')
-            // simple: just key by raw symbol too
             map[p.symbol] = p
-            // also key as "BTC/USD" format
             const withSlash = p.symbol.length > 3
               ? p.symbol.slice(0, p.symbol.length - 3) + '/' + p.symbol.slice(-3)
               : p.symbol
@@ -362,8 +451,29 @@ export default function AiBotPage() {
           setLivePos(map)
         }
       } catch { /* non-blocking */ }
+
     } else {
-      setOffline(true)
+      // Local API unreachable — fall back to Supabase (works from anywhere)
+      const supaResult = await fetchFromSupabase()
+      if (supaResult) {
+        setData(supaResult.summary as BotSummary)
+        setOffline(false)
+        setDataSource('supabase')
+        // Build livePos from Supabase positions (has unrealized_pnl)
+        const map: Record<string, any> = {}
+        for (const p of supaResult.summary.open_trades || []) {
+          if (p.pnl_dollars !== null) {
+            const sym = p.instrument.replace('/', '')
+            const live = { current_price: p.entry_price, unrealized_pl: p.pnl_dollars, unrealized_plpc: p.pnl_percent || 0 }
+            map[sym] = live
+            map[p.instrument] = live
+          }
+        }
+        setLivePos(map)
+      } else {
+        setOffline(true)
+        setDataSource('none')
+      }
     }
     setLoading(false)
   }, [])
@@ -445,6 +555,17 @@ export default function AiBotPage() {
           <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-400/10 border border-emerald-400/30 text-emerald-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> RUNNING
           </span>
+          {/* Data source badge */}
+          {dataSource === 'supabase' && (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-400/10 border border-blue-400/30 text-blue-400">
+              <Wifi size={9} /> Supabase · 30s delay
+            </span>
+          )}
+          {dataSource === 'local' && (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-400/10 border border-emerald-400/30 text-emerald-400">
+              <Wifi size={9} /> Live
+            </span>
+          )}
         </div>
         <button onClick={load} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[#1a1f2e] hover:bg-[#252b3b] border border-[#2a2f3e] rounded-lg text-slate-300 transition">
           <RefreshCw size={12} /> Refresh
