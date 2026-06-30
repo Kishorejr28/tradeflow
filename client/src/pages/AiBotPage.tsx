@@ -680,10 +680,18 @@ export default function AiBotPage() {
 
                       {/* SL/TP info + progress bar */}
                       <div className="mt-2">
-                        <p className="text-[10px] text-slate-600 mb-1">
-                          SL ${slP.toFixed(slP > 100 ? 2 : 4)}
-                          {tpP ? ` · TP $${tpP.toFixed(tpP > 100 ? 2 : 4)}` : ' · Trailing stop'}
-                        </p>
+                        <div className="flex justify-between text-[10px] text-slate-600 mb-1">
+                          <span>SL ${slP.toFixed(slP > 100 ? 2 : 4)}</span>
+                          {progress !== null && tpP && (
+                            <span className={`font-semibold ${progress >= 50 ? 'text-emerald-500' : 'text-slate-400'}`}>
+                              {progress.toFixed(0)}% to TP
+                            </span>
+                          )}
+                          {tpP
+                            ? <span>TP ${tpP.toFixed(tpP > 100 ? 2 : 4)}</span>
+                            : <span>Trailing stop</span>
+                          }
+                        </div>
                         {progress !== null && tpP && (
                           <div className="h-1.5 bg-[#2a2f3e] rounded-full overflow-hidden">
                             <div
