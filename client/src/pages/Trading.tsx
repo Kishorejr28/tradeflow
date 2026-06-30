@@ -2,16 +2,9 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   TrendingUp, TrendingDown, BarChart2, X, RotateCcw, Star,
   ChevronUp, ChevronDown, Bell, Calculator, History, Trash2, Swords,
-  Settings2, Plus, Loader2,
 } from 'lucide-react'
-import {
-  createChart, CrosshairMode, LineStyle,
-  type IChartApi, type ISeriesApi, type UTCTimestamp,
-} from 'lightweight-charts'
 import { useDemoStore, calcPnl } from '@/store/demoStore'
 import { useLivePrices, getPipSize, BASE_PRICES } from '@/hooks/useLivePrices'
-import { fetchCandles } from '@/lib/marketData'
-import type { OHLCV } from '@/pages/Replay'
 import { format } from 'date-fns'
 import { useAppStore } from '@/store/appStore'
 import { useNavigate } from 'react-router-dom'
@@ -20,8 +13,8 @@ import PracticeMode from '@/components/trading/PracticeMode'
 // ── Constants ─────────────────────────────────────────────────────────────────
 const SYMBOLS = ['EURUSD','GBPUSD','USDJPY','AUDUSD','USDCAD','USDCHF','NZDUSD','XAUUSD','GBPJPY','EURJPY','EURGBP','GBPCHF']
 
-
-
+const TV_SYMBOL: Record<string,string> = { XAUUSD:'TVC:GOLD', GBPJPY:'FX:GBPJPY', EURJPY:'FX:EURJPY', EURGBP:'FX:EURGBP', GBPCHF:'FX:GBPCHF' }
+const tvSym = (s: string) => TV_SYMBOL[s] ?? `FX:${s}`
 const dec = (s: string) => s.includes('JPY') || s === 'XAUUSD' ? 2 : 4
 const SPREADS: Record<string,number> = { EURUSD:0.8,GBPUSD:1.2,USDJPY:0.9,AUDUSD:1.1,XAUUSD:3.5,USDCAD:1.4,USDCHF:1.6,NZDUSD:1.8,GBPJPY:2.1,EURJPY:1.4,EURGBP:1.3,GBPCHF:2.4 }
 
@@ -35,473 +28,42 @@ const LAYOUTS: { id: Layout; icon: string; label: string; slots: number }[] = [
 
 interface Alert { id:string; symbol:string; price:number; condition:'above'|'below'; triggered:boolean; note:string }
 
-// ── Indicator math (same algorithms as Replay) ───────────────────────────────
-function calcSMA(d: OHLCV[], p: number) {
-  const out: {time:UTCTimestamp;value:number}[] = []
-  for (let i=p-1;i<d.length;i++)
-    out.push({time:d[i].time, value:d.slice(i-p+1,i+1).reduce((s,c)=>s+c.close,0)/p})
-  return out
-}
-function calcEMA(d: OHLCV[], p: number): {time:UTCTimestamp;value:number}[] {
-  if (d.length<p) return []
-  const k=2/(p+1); const out: {time:UTCTimestamp;value:number}[] = []
-  let e=d.slice(0,p).reduce((s,c)=>s+c.close,0)/p
-  out.push({time:d[p-1].time,value:e})
-  for (let i=p;i<d.length;i++){e=d[i].close*k+e*(1-k);out.push({time:d[i].time,value:e})}
-  return out
-}
-function calcBB(d: OHLCV[], p=20, m=2) {
-  const out:{time:UTCTimestamp;upper:number;middle:number;lower:number}[] = []
-  for (let i=p-1;i<d.length;i++){
-    const sl=d.slice(i-p+1,i+1), mean=sl.reduce((s,c)=>s+c.close,0)/p
-    const std=Math.sqrt(sl.reduce((s,c)=>s+Math.pow(c.close-mean,2),0)/p)
-    out.push({time:d[i].time,upper:mean+m*std,middle:mean,lower:mean-m*std})
-  }
-  return out
-}
-function calcRSI(d: OHLCV[], p=14): {time:UTCTimestamp;value:number}[] {
-  if (d.length<=p) return []
-  const out:{time:UTCTimestamp;value:number}[] = []
-  let ag=0,al=0
-  for (let i=1;i<=p;i++){const x=d[i].close-d[i-1].close;if(x>0)ag+=x;else al-=x}
-  ag/=p;al/=p
-  const rs=(g:number,l:number)=>l===0?100:100-100/(1+g/l)
-  out.push({time:d[p].time,value:rs(ag,al)})
-  for (let i=p+1;i<d.length;i++){
-    const x=d[i].close-d[i-1].close
-    ag=(ag*(p-1)+Math.max(x,0))/p;al=(al*(p-1)+Math.max(-x,0))/p
-    out.push({time:d[i].time,value:rs(ag,al)})
-  }
-  return out
-}
-function calcMACD(d: OHLCV[], f=12, s=26, sg=9) {
-  const fe=calcEMA(d,f),se=calcEMA(d,s),off=s-f
-  const ml:{time:UTCTimestamp;value:number}[]=se
-    .map((x,i)=>({time:x.time,value:(fe[i+off]?.value??0)-x.value}))
-    .filter((_,i)=>i+off<fe.length)
-  if (ml.length<sg) return {ml:[],sl:[],hist:[]}
-  const slArr:{time:UTCTimestamp;value:number}[]=[]
-  let e=ml.slice(0,sg).reduce((s,c)=>s+c.value,0)/sg
-  slArr.push({time:ml[sg-1].time,value:e})
-  const k=2/(sg+1)
-  for (let i=sg;i<ml.length;i++){e=ml[i].value*k+e*(1-k);slArr.push({time:ml[i].time,value:e})}
-  const hist=slArr.map((x,i)=>{
-    const v=ml[i+ml.length-slArr.length].value-x.value
-    return {time:x.time,value:v,color:v>=0?'rgba(34,197,94,0.7)':'rgba(239,68,68,0.7)'}
-  })
-  return {ml,sl:slArr,hist}
-}
-function calcVWAP(d: OHLCV[]): {time:UTCTimestamp;value:number}[] {
-  const out:{time:UTCTimestamp;value:number}[] = []
-  let cumPV=0,cumV=0
-  for (const c of d){
-    const tp=(c.high+c.low+c.close)/3
-    cumPV+=tp*c.volume;cumV+=c.volume
-    out.push({time:c.time,value:cumV?cumPV/cumV:tp})
-  }
-  return out
-}
-function calcStoch(d: OHLCV[], kp=14, dp=3): {time:UTCTimestamp;k:number;d:number}[] {
-  const out:{time:UTCTimestamp;k:number;d:number}[] = []
-  for (let i=kp-1;i<d.length;i++){
-    const sl=d.slice(i-kp+1,i+1)
-    const lo=Math.min(...sl.map(c=>c.low)),hi=Math.max(...sl.map(c=>c.high))
-    const k=hi===lo?50:((d[i].close-lo)/(hi-lo))*100
-    out.push({time:d[i].time,k,d:0})
-  }
-  for (let i=dp-1;i<out.length;i++)
-    out[i].d=out.slice(i-dp+1,i+1).reduce((s,c)=>s+c.k,0)/dp
-  return out.filter((_,i)=>i>=dp-1)
-}
-function calcATR(d: OHLCV[], p=14): {time:UTCTimestamp;value:number}[] {
-  const out:{time:UTCTimestamp;value:number}[] = []
-  if (d.length<2) return out
-  const trs:number[]=[]
-  for (let i=1;i<d.length;i++)
-    trs.push(Math.max(d[i].high-d[i].low,Math.abs(d[i].high-d[i-1].close),Math.abs(d[i].low-d[i-1].close)))
-  let atr=trs.slice(0,p).reduce((s,v)=>s+v,0)/p
-  out.push({time:d[p].time,value:atr})
-  for (let i=p;i<trs.length;i++){atr=(atr*(p-1)+trs[i])/p;out.push({time:d[i+1].time,value:atr})}
-  return out
-}
-
-// ── Indicator config types ────────────────────────────────────────────────────
-type IndicatorType = 'SMA'|'EMA'|'BB'|'VWAP'|'RSI'|'MACD'|'Stoch'|'ATR'|'Volume'
-interface IndicatorConfig {
-  id: string
-  type: IndicatorType
-  period: number
-  color: string
-  enabled: boolean
-}
-
-const INDICATOR_DEFAULTS: Record<IndicatorType, {period:number;color:string;pane:'main'|'sub'}> = {
-  SMA:    {period:20,  color:'#f59e0b', pane:'main'},
-  EMA:    {period:50,  color:'#818cf8', pane:'main'},
-  BB:     {period:20,  color:'#06b6d4', pane:'main'},
-  VWAP:   {period:0,   color:'#a78bfa', pane:'main'},
-  RSI:    {period:14,  color:'#f472b6', pane:'sub'},
-  MACD:   {period:12,  color:'#34d399', pane:'sub'},
-  Stoch:  {period:14,  color:'#fb923c', pane:'sub'},
-  ATR:    {period:14,  color:'#94a3b8', pane:'sub'},
-  Volume: {period:0,   color:'#4ade80', pane:'sub'},
-}
-
-const TIMEFRAMES = ['1m','5m','15m','1h','4h','1D']
-
-// ── Main chart component ──────────────────────────────────────────────────────
-function TFChart({ symbol }: { symbol: string }) {
+// ── TradingView Widget ─────────────────────────────────────────────────────────
+function TVChart({ symbol, height }: { symbol: string; height?: number }) {
+  const ref = useRef<HTMLDivElement>(null)
   const { theme } = useAppStore()
-  const isDark = theme === 'dark'
 
-  const containerRef = useRef<HTMLDivElement>(null)
-  const chartRef     = useRef<IChartApi|null>(null)
-  const rsiChartRef  = useRef<IChartApi|null>(null)
-  const subChartRef  = useRef<IChartApi|null>(null)
-
-  // series refs for overlay indicators
-  const candleRef  = useRef<ISeriesApi<'Candlestick'>|null>(null)
-  const volRef     = useRef<ISeriesApi<'Histogram'>|null>(null)
-  const seriesRefs = useRef<Map<string, ISeriesApi<any>>>(new Map())
-
-  const [tf, setTF]             = useState('15m')
-  const [loading, setLoading]   = useState(true)
-  const [dataRef, setDataRef]   = useState<OHLCV[]>([])
-  const [showIndPanel, setShowIndPanel] = useState(false)
-  const [indicators, setIndicators] = useState<IndicatorConfig[]>([
-    {id:'i1',type:'EMA',period:20, color:'#818cf8',enabled:true},
-    {id:'i2',type:'EMA',period:50, color:'#f59e0b',enabled:true},
-    {id:'i3',type:'RSI',period:14, color:'#f472b6',enabled:false},
-  ])
-
-  const MAX_INDICATORS = 5
-
-  // ── Load candles ─────────────────────────────────────────────────────────────
-  const loadData = useCallback(async (sym: string, timeframe: string) => {
-    setLoading(true)
-    try {
-      const result = await fetchCandles(sym, timeframe, () => [])
-      setDataRef(result.data)
-    } catch {
-      setDataRef([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { loadData(symbol, tf) }, [symbol, tf])
-
-  // ── Build / rebuild charts ────────────────────────────────────────────────────
   useEffect(() => {
-    if (!containerRef.current || !dataRef.length) return
-
-    const bg   = isDark ? '#141414' : '#ffffff'
-    const text = isDark ? '#9ca3af' : '#6b7280'
-    const grid = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'
-
-    const totalH = containerRef.current.getBoundingClientRect().height || containerRef.current.offsetHeight || 400
-
-    const baseOpts = {
-      layout:     { background: { color: bg }, textColor: text, fontSize: 11 },
-      grid:       { vertLines: { color: grid }, horzLines: { color: grid } },
-      crosshair:  { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderColor: isDark ? '#2d2d2d' : '#e5e7eb' },
-      timeScale:  { borderColor: isDark ? '#2d2d2d' : '#e5e7eb', timeVisible: true, secondsVisible: false },
-      handleScroll: true,
-      handleScale:  true,
-    }
-
-    // Determine how many sub-panes we need
-    const enabledSubs = indicators.filter(i => i.enabled && INDICATOR_DEFAULTS[i.type].pane === 'sub')
-    const hasSubA = enabledSubs.length > 0
-    const hasSubB = enabledSubs.length > 1
-
-    const subH  = 110
-    const mainH = Math.max(120, totalH - (hasSubA ? subH : 0) - (hasSubB ? subH : 0))
-
-    // Destroy old charts
-    chartRef.current?.remove()
-    rsiChartRef.current?.remove()
-    subChartRef.current?.remove()
-    chartRef.current = null
-    rsiChartRef.current = null
-    subChartRef.current = null
-    seriesRefs.current.clear()
-
-    // Split container into divs
-    containerRef.current.innerHTML = ''
-
-    const mainDiv = document.createElement('div')
-    mainDiv.style.height = `${mainH}px`
-    mainDiv.style.width = '100%'
-    containerRef.current.appendChild(mainDiv)
-
-    let subADiv: HTMLDivElement|null = null
-    if (hasSubA) {
-      subADiv = document.createElement('div')
-      subADiv.style.height = `${subH}px`
-      subADiv.style.width = '100%'
-      containerRef.current.appendChild(subADiv)
-    }
-
-    let subBDiv: HTMLDivElement|null = null
-    if (hasSubB) {
-      subBDiv = document.createElement('div')
-      subBDiv.style.height = `${subH}px`
-      subBDiv.style.width = '100%'
-      containerRef.current.appendChild(subBDiv)
-    }
-
-    // Create main chart
-    const chart = createChart(mainDiv, { ...baseOpts, width: mainDiv.clientWidth, height: mainH, timeScale: { ...baseOpts.timeScale, visible: !hasSubA } })
-    chartRef.current = chart
-
-    // Candles
-    const cSeries = chart.addCandlestickSeries({
-      upColor: '#22c55e', downColor: '#ef4444',
-      borderUpColor: '#22c55e', borderDownColor: '#ef4444',
-      wickUpColor: '#22c55e', wickDownColor: '#ef4444',
+    if (!ref.current) return
+    ref.current.innerHTML = ''
+    const s = document.createElement('script')
+    s.type = 'text/javascript'
+    s.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'
+    s.async = true
+    s.innerHTML = JSON.stringify({
+      autosize: true,
+      symbol: tvSym(symbol),
+      interval: '15',
+      timezone: 'Etc/UTC',
+      theme: theme === 'dark' ? 'dark' : 'light',
+      style: '1',
+      locale: 'en',
+      withdateranges: true,
+      hide_side_toolbar: false,
+      allow_symbol_change: true,
+      save_image: false,
+      calendar: false,
+      hide_volume: false,
+      support_host: 'https://www.tradingview.com',
     })
-    cSeries.setData(dataRef)
-    candleRef.current = cSeries
+    ref.current.appendChild(s)
+    return () => { if (ref.current) ref.current.innerHTML = '' }
+  }, [symbol, theme])
 
-    // Overlay indicators (main pane)
-    indicators.filter(i => i.enabled && INDICATOR_DEFAULTS[i.type].pane === 'main').forEach(ind => {
-      if (ind.type === 'SMA') {
-        const s = chart.addLineSeries({ color: ind.color, lineWidth: 1, crosshairMarkerVisible: false })
-        s.setData(calcSMA(dataRef, ind.period))
-        seriesRefs.current.set(ind.id, s)
-      } else if (ind.type === 'EMA') {
-        const s = chart.addLineSeries({ color: ind.color, lineWidth: 1, crosshairMarkerVisible: false })
-        s.setData(calcEMA(dataRef, ind.period))
-        seriesRefs.current.set(ind.id, s)
-      } else if (ind.type === 'BB') {
-        const bb = calcBB(dataRef, ind.period)
-        ;(['upper','middle','lower'] as const).forEach((band, bi) => {
-          const s = chart.addLineSeries({
-            color: ind.color,
-            lineWidth: bi === 1 ? 1 : 1,
-            lineStyle: bi === 1 ? LineStyle.Dashed : LineStyle.Solid,
-            crosshairMarkerVisible: false,
-          })
-          s.setData(bb.map(b => ({time:b.time, value:b[band]})))
-          seriesRefs.current.set(`${ind.id}-${band}`, s)
-        })
-      } else if (ind.type === 'VWAP') {
-        const s = chart.addLineSeries({ color: ind.color, lineWidth: 1, lineStyle: LineStyle.Dashed, crosshairMarkerVisible: false })
-        s.setData(calcVWAP(dataRef))
-        seriesRefs.current.set(ind.id, s)
-      }
-    })
-
-    // Sub-pane charts
-    const subInds = indicators.filter(i => i.enabled && INDICATOR_DEFAULTS[i.type].pane === 'sub')
-
-    const buildSubChart = (div: HTMLDivElement, ind: IndicatorConfig, isLast: boolean) => {
-      const sc = createChart(div, {
-        ...baseOpts,
-        width: div.clientWidth,
-        height: subH,
-        timeScale: { ...baseOpts.timeScale, visible: isLast },
-        rightPriceScale: { borderColor: isDark ? '#2d2d2d' : '#e5e7eb', scaleMargins: { top: 0.1, bottom: 0.1 } },
-      })
-
-      if (ind.type === 'RSI') {
-        const s = sc.addLineSeries({ color: ind.color, lineWidth: 1 })
-        s.setData(calcRSI(dataRef, ind.period))
-        // OB/OS lines
-        ;[70, 30].forEach(level => {
-          const line = sc.addLineSeries({ color: 'rgba(156,163,175,0.3)', lineWidth: 1, lineStyle: LineStyle.Dashed })
-          line.setData(dataRef.map(d => ({ time: d.time, value: level })))
-        })
-      } else if (ind.type === 'MACD') {
-        const {ml, sl, hist} = calcMACD(dataRef)
-        const hSeries = sc.addHistogramSeries({ color: ind.color })
-        hSeries.setData(hist)
-        const mLine  = sc.addLineSeries({ color: ind.color, lineWidth: 1 })
-        mLine.setData(ml)
-        const sLine  = sc.addLineSeries({ color: '#f59e0b', lineWidth: 1 })
-        sLine.setData(sl)
-      } else if (ind.type === 'Stoch') {
-        const st = calcStoch(dataRef, ind.period)
-        const kLine = sc.addLineSeries({ color: ind.color, lineWidth: 1 })
-        kLine.setData(st.map(x => ({time:x.time, value:x.k})))
-        const dLine = sc.addLineSeries({ color: '#f59e0b', lineWidth: 1 })
-        dLine.setData(st.map(x => ({time:x.time, value:x.d})))
-      } else if (ind.type === 'ATR') {
-        const s = sc.addLineSeries({ color: ind.color, lineWidth: 1 })
-        s.setData(calcATR(dataRef, ind.period))
-      } else if (ind.type === 'Volume') {
-        const s = sc.addHistogramSeries({ color: ind.color })
-        s.setData(dataRef.map(d => ({
-          time: d.time,
-          value: d.volume,
-          color: d.close >= d.open ? 'rgba(34,197,94,0.5)' : 'rgba(239,68,68,0.5)',
-        })))
-      }
-
-      // Sync time scale with main chart
-      chart.timeScale().subscribeVisibleTimeRangeChange(range => {
-        if (range) sc.timeScale().setVisibleRange(range)
-      })
-
-      return sc
-    }
-
-    if (subADiv && subInds[0]) {
-      rsiChartRef.current = buildSubChart(subADiv, subInds[0], !hasSubB)
-    }
-    if (subBDiv && subInds[1]) {
-      subChartRef.current = buildSubChart(subBDiv, subInds[1], true)
-    }
-
-    chart.timeScale().fitContent()
-
-    const ro = new ResizeObserver(entries => {
-      if (!containerRef.current || !chartRef.current) return
-      const w = entries[0]?.contentRect.width ?? mainDiv.clientWidth
-      const newTotal = containerRef.current.getBoundingClientRect().height || containerRef.current.offsetHeight
-      const newMain = Math.max(120, newTotal - (hasSubA ? subH : 0) - (hasSubB ? subH : 0))
-      chart.resize(w, newMain)
-      rsiChartRef.current?.resize(w, subH)
-      subChartRef.current?.resize(w, subH)
-    })
-    ro.observe(containerRef.current)
-    return () => ro.disconnect()
-  }, [dataRef, isDark, indicators])
-
-  // ── Indicator panel ───────────────────────────────────────────────────────────
-  const addIndicator = (type: IndicatorType) => {
-    if (indicators.length >= MAX_INDICATORS) return
-    const def = INDICATOR_DEFAULTS[type]
-    const colors = ['#818cf8','#f59e0b','#34d399','#f472b6','#fb923c']
-    setIndicators(prev => [...prev, {
-      id: `i${Date.now()}`,
-      type,
-      period: def.period,
-      color: colors[prev.length % colors.length],
-      enabled: true,
-    }])
-  }
-
-  const removeIndicator = (id: string) => setIndicators(prev => prev.filter(i => i.id !== id))
-  const toggleIndicator = (id: string) => setIndicators(prev => prev.map(i => i.id === id ? {...i, enabled: !i.enabled} : i))
-  const updatePeriod    = (id: string, period: number) => setIndicators(prev => prev.map(i => i.id === id ? {...i, period} : i))
-
-  const overlayInds = indicators.filter(i => INDICATOR_DEFAULTS[i.type].pane === 'main')
-  const subInds     = indicators.filter(i => INDICATOR_DEFAULTS[i.type].pane === 'sub')
-
-  return (
-    <div className="flex flex-col h-full bg-white dark:bg-[#141414]">
-      {/* Chart toolbar */}
-      <div className="flex items-center gap-1 px-2 py-1 border-b border-gray-100 dark:border-gray-800 shrink-0 flex-wrap">
-        {/* Timeframe selector */}
-        <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-800 rounded p-0.5">
-          {TIMEFRAMES.map(t => (
-            <button key={t} onClick={() => setTF(t)}
-              className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition ${tf===t ? 'bg-white dark:bg-gray-600 text-gray-800 dark:text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}>
-              {t}
-            </button>
-          ))}
-        </div>
-
-        <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
-
-        {/* Active indicator pills */}
-        {indicators.filter(i => i.enabled).map(ind => (
-          <span key={ind.id} className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border"
-            style={{ borderColor: ind.color+'60', color: ind.color, background: ind.color+'18' }}>
-            <span className="w-1.5 h-1.5 rounded-full inline-block shrink-0" style={{background: ind.color}}/>
-            {ind.type}{ind.period ? ` ${ind.period}` : ''}
-          </span>
-        ))}
-
-        <button onClick={() => setShowIndPanel(p => !p)}
-          className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold transition ml-auto border ${showIndPanel ? 'bg-brand-500 text-white border-brand-500' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}>
-          <Settings2 className="w-3 h-3" />
-          Indicators {indicators.filter(i=>i.enabled).length}/{MAX_INDICATORS}
-        </button>
-
-        {loading && <Loader2 className="w-3 h-3 text-brand-500 animate-spin shrink-0" />}
-      </div>
-
-      {/* Indicator config panel */}
-      {showIndPanel && (
-        <div className="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-[#1a1a1a] px-3 py-2 shrink-0">
-          <div className="flex items-start gap-4 flex-wrap">
-            {/* Add new indicator */}
-            <div className="shrink-0">
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
-                Add indicator ({MAX_INDICATORS - indicators.length} left)
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {/* Overlay */}
-                <span className="text-[9px] text-gray-400 self-center">Overlay:</span>
-                {(['SMA','EMA','BB','VWAP'] as IndicatorType[]).map(t => (
-                  <button key={t} onClick={() => addIndicator(t)}
-                    disabled={indicators.length >= MAX_INDICATORS}
-                    className="px-2 py-0.5 text-[10px] rounded border border-brand-400 text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition">
-                    + {t}
-                  </button>
-                ))}
-                <span className="text-[9px] text-gray-400 self-center ml-2">Sub-pane:</span>
-                {(['RSI','MACD','Stoch','ATR','Volume'] as IndicatorType[]).map(t => (
-                  <button key={t} onClick={() => addIndicator(t)}
-                    disabled={indicators.length >= MAX_INDICATORS || subInds.length >= 2}
-                    className="px-2 py-0.5 text-[10px] rounded border border-purple-400 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition">
-                    + {t}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Current indicators */}
-            {indicators.length > 0 && (
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Active</p>
-                <div className="flex flex-wrap gap-2">
-                  {indicators.map(ind => (
-                    <div key={ind.id} className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[10px] transition ${ind.enabled ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700' : 'bg-gray-100 dark:bg-gray-900 border-gray-100 dark:border-gray-800 opacity-50'}`}>
-                      <span className="w-2 h-2 rounded-full shrink-0 cursor-pointer" style={{background: ind.color}}
-                        onClick={() => toggleIndicator(ind.id)} title="Toggle" />
-                      <span className="font-semibold text-gray-700 dark:text-gray-300">{ind.type}</span>
-                      {ind.period > 0 && (
-                        <input type="number" value={ind.period} min={2} max={200}
-                          onChange={e => updatePeriod(ind.id, parseInt(e.target.value)||ind.period)}
-                          className="w-10 text-center text-[10px] border border-gray-200 dark:border-gray-600 rounded bg-transparent text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-1 focus:ring-brand-400"
-                        />
-                      )}
-                      <span className="text-[9px] text-gray-400 uppercase">
-                        {INDICATOR_DEFAULTS[ind.type].pane === 'main' ? 'OVL' : 'SUB'}
-                      </span>
-                      <button onClick={() => removeIndicator(ind.id)} className="text-gray-300 dark:text-gray-600 hover:text-red-400 transition ml-0.5">
-                        <X className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Chart container — lightweight-charts mounts here */}
-      <div className="flex-1 min-h-0 relative">
-        {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-[#141414]/80 z-10">
-            <div className="flex flex-col items-center gap-2">
-              <Loader2 className="w-6 h-6 text-brand-500 animate-spin" />
-              <span className="text-xs text-gray-400">Loading {symbol} {tf}...</span>
-            </div>
-          </div>
-        )}
-        <div ref={containerRef} className="w-full h-full" />
-      </div>
-    </div>
-  )
+  return <div ref={ref} className="tradingview-widget-container w-full h-full" />
 }
 
+// ── Chart Slot (symbol picker + chart) ────────────────────────────────────────
 function ChartSlot({ symbol, onSymbolChange, prices }: {
   symbol: string
   onSymbolChange: (s: string) => void
@@ -537,7 +99,7 @@ function ChartSlot({ symbol, onSymbolChange, prices }: {
           </>
         )}
       </div>
-      <div className="flex-1 min-h-0"><TFChart symbol={symbol} /></div>
+      <div className="flex-1 min-h-0"><TVChart symbol={symbol} /></div>
     </div>
   )
 }
