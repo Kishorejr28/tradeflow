@@ -475,19 +475,20 @@ export default function AiBotPage() {
         setData(supaResult.summary as BotSummary)
         setOffline(false)
         setDataSource('supabase')
-        // Build livePos from Supabase positions (has unrealized_pnl)
+        // Build livePos from Supabase positions
+        // Note: in Supabase open_trades, exit_price stores current_price
         const map: Record<string, any> = {}
         for (const p of supaResult.summary.open_trades || []) {
-          if ((p as any).current_price !== null || p.pnl_dollars !== null) {
-            const sym = p.instrument.replace('/', '')
-            const live = {
-              current_price:   (p as any).current_price ?? p.entry_price,
-              unrealized_pl:   p.pnl_dollars ?? 0,
-              unrealized_plpc: p.pnl_percent ?? 0,
-            }
-            map[sym] = live
-            map[p.instrument] = live
+          const sym = p.instrument.replace('/', '')
+          // exit_price was mapped to hold current_price in fetchFromSupabase
+          const currPx = (p.exit_price ?? p.entry_price) as number
+          const live = {
+            current_price:   currPx,
+            unrealized_pl:   p.pnl_dollars ?? 0,
+            unrealized_plpc: p.pnl_percent ?? 0,
           }
+          map[sym] = live
+          map[p.instrument] = live
         }
         setLivePos(map)
       } else {
@@ -641,25 +642,24 @@ export default function AiBotPage() {
                   const alpacaSym  = t.instrument.replace('/', '')
                   const live       = livePos[alpacaSym] || livePos[t.instrument]
 
-                  // Current price from Alpaca live feed (accurate even when netted)
-                  const currPrice: number | null = live ? parseFloat(live.current_price) : null
+                  // Best current price: Alpaca live feed > Supabase stored current_price > null
+                  // Note: in Supabase open_trades, exit_price holds current_price
+                  const currPrice: number | null =
+                    live?.current_price != null ? parseFloat(String(live.current_price))
+                    : t.exit_price != null       ? t.exit_price
+                    : null
 
-                  // Calculate P&L from first principles using our own position size
-                  // This is correct even when Alpaca nets multiple trades on same instrument
-                  const calcPnl = currPrice !== null && t.position_size > 0
+                  // Calculate P&L per-trade using our position size (correct even for netted positions)
+                  const unrealPnl = currPrice !== null && t.position_size > 0
                     ? (t.direction === 'long'
                         ? (currPrice - t.entry_price) * t.position_size
                         : (t.entry_price - currPrice) * t.position_size)
                     : null
-                  const calcPct = currPrice !== null && t.entry_price > 0
+                  const unrealPct = currPrice !== null && t.entry_price > 0
                     ? (t.direction === 'long'
                         ? (currPrice - t.entry_price) / t.entry_price * 100
                         : (t.entry_price - currPrice) / t.entry_price * 100)
                     : null
-
-                  // Use calculated values — more accurate than Alpaca's netted unrealised_pl
-                  const unrealPnl = calcPnl
-                  const unrealPct = calcPct
 
                   const isLong     = t.direction === 'long'
                   const pnlColor   = unrealPnl === null ? 'text-slate-400'
