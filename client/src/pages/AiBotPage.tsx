@@ -640,18 +640,27 @@ export default function AiBotPage() {
                 {open_trades.length ? open_trades.map(t => {
                   const alpacaSym  = t.instrument.replace('/', '')
                   const live       = livePos[alpacaSym] || livePos[t.instrument]
-                  // current_price: use live Alpaca price, or derive from unrealized_pnl
-                  let currPrice: number | null = live ? parseFloat(live.current_price) : null
-                  const unrealPnl  = live ? parseFloat(live.unrealized_pl)   : null
-                  const unrealPct  = live ? parseFloat(live.unrealized_plpc) * 100 : null
 
-                  // If current_price is missing but we have unrealised P&L, derive it
-                  if (!currPrice && unrealPnl !== null && t.position_size > 0) {
-                    const pnlPerUnit = unrealPnl / t.position_size
-                    currPrice = t.direction === 'long'
-                      ? t.entry_price + pnlPerUnit
-                      : t.entry_price - pnlPerUnit
-                  }
+                  // Current price from Alpaca live feed (accurate even when netted)
+                  const currPrice: number | null = live ? parseFloat(live.current_price) : null
+
+                  // Calculate P&L from first principles using our own position size
+                  // This is correct even when Alpaca nets multiple trades on same instrument
+                  const calcPnl = currPrice !== null && t.position_size > 0
+                    ? (t.direction === 'long'
+                        ? (currPrice - t.entry_price) * t.position_size
+                        : (t.entry_price - currPrice) * t.position_size)
+                    : null
+                  const calcPct = currPrice !== null && t.entry_price > 0
+                    ? (t.direction === 'long'
+                        ? (currPrice - t.entry_price) / t.entry_price * 100
+                        : (t.entry_price - currPrice) / t.entry_price * 100)
+                    : null
+
+                  // Use calculated values — more accurate than Alpaca's netted unrealised_pl
+                  const unrealPnl = calcPnl
+                  const unrealPct = calcPct
+
                   const isLong     = t.direction === 'long'
                   const pnlColor   = unrealPnl === null ? 'text-slate-400'
                                    : unrealPnl >= 0 ? 'text-emerald-400' : 'text-red-400'
