@@ -8,6 +8,158 @@ const FROM_EMAIL = 'TradeFlow <noreply@tradeflow.app>'
 // Note: use your verified domain in Resend. Until then, use onboarding@resend.dev for testing.
 const FROM_FALLBACK = 'TradeFlow <onboarding@resend.dev>'
 
+async function sendEmail(to: string, subject: string, html: string) {
+  if (!RESEND_API_KEY) {
+    console.log('No Resend API key — skipping email')
+    return { ok: false, reason: 'no_key' }
+  }
+  try {
+    const from = RESEND_API_KEY.startsWith('re_') ? FROM_EMAIL : FROM_FALLBACK
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ from, to: [to], subject, html }),
+    })
+    if (!res.ok) {
+      const err = await res.text()
+      console.error('Resend error:', err)
+      return { ok: false, reason: err }
+    }
+    return { ok: true }
+  } catch (e) {
+    console.error('Email send failed:', e)
+    return { ok: false, reason: String(e) }
+  }
+}
+
+// ── Price Alert Email ─────────────────────────────────────────────────────────
+
+export async function sendPriceAlertEmail({
+  to,
+  name,
+  symbol,
+  condition,
+  targetPrice,
+  currentPrice,
+  note,
+}: {
+  to: string
+  name?: string
+  symbol: string
+  condition: 'above' | 'below'
+  targetPrice: number
+  currentPrice: number
+  note?: string
+}) {
+  const firstName  = name?.split(' ')[0] || 'Trader'
+  const condLabel  = condition === 'above' ? 'risen above' : 'fallen below'
+  const condColor  = condition === 'above' ? '#10b981' : '#ef4444'
+  const condBg     = condition === 'above' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'
+  const condBorder = condition === 'above' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'
+  const arrow      = condition === 'above' ? '↑' : '↓'
+  const decimals   = symbol.includes('JPY') || symbol === 'XAUUSD' ? 2 : 4
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Price Alert Triggered — ${symbol}</title>
+</head>
+<body style="margin:0;padding:0;background:#070714;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#070714;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;">
+
+        <!-- Logo -->
+        <tr><td align="center" style="padding-bottom:28px;">
+          <table cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="background:linear-gradient(135deg,#7c3aed,#2563eb);border-radius:12px;width:40px;height:40px;text-align:center;vertical-align:middle;">
+                <span style="color:white;font-size:18px;line-height:40px;">📈</span>
+              </td>
+              <td style="padding-left:10px;vertical-align:middle;">
+                <span style="color:white;font-size:20px;font-weight:900;letter-spacing:-0.5px;">TradeFlow</span>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+
+        <!-- Alert card -->
+        <tr><td style="background:linear-gradient(135deg,#0d1a3a,#1a0a2e);border-radius:24px;padding:40px 36px;text-align:center;border:1px solid rgba(255,255,255,0.08);">
+
+          <!-- Bell icon -->
+          <div style="font-size:40px;margin-bottom:16px;">🔔</div>
+
+          <h1 style="color:white;font-size:28px;font-weight:900;margin:0 0 8px;letter-spacing:-0.5px;">
+            Price Alert Triggered
+          </h1>
+          <p style="color:rgba(255,255,255,0.5);font-size:14px;margin:0 0 28px;">
+            Hey ${firstName}, your alert for <strong style="color:white;">${symbol}</strong> just fired.
+          </p>
+
+          <!-- Main alert box -->
+          <table width="100%" cellpadding="0" cellspacing="0"
+            style="background:${condBg};border:1px solid ${condBorder};border-radius:16px;margin-bottom:24px;">
+            <tr><td style="padding:24px;">
+              <div style="color:${condColor};font-size:36px;font-weight:900;margin-bottom:4px;">
+                ${arrow} ${symbol}
+              </div>
+              <div style="color:rgba(255,255,255,0.6);font-size:14px;margin-bottom:16px;">
+                has <strong style="color:${condColor};">${condLabel}</strong> your target
+              </div>
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="text-align:center;padding:0 8px;">
+                    <div style="color:rgba(255,255,255,0.4);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Your Target</div>
+                    <div style="color:white;font-size:22px;font-weight:900;">${targetPrice.toFixed(decimals)}</div>
+                  </td>
+                  <td style="text-align:center;padding:0 8px;">
+                    <div style="color:rgba(255,255,255,0.4);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Current Price</div>
+                    <div style="color:${condColor};font-size:22px;font-weight:900;">${currentPrice.toFixed(decimals)}</div>
+                  </td>
+                </tr>
+              </table>
+              ${note ? `<div style="margin-top:16px;padding:12px;background:rgba(255,255,255,0.05);border-radius:10px;color:rgba(255,255,255,0.6);font-size:13px;font-style:italic;">"${note}"</div>` : ''}
+            </td></tr>
+          </table>
+
+          <!-- CTA -->
+          <a href="https://tradeflow-one-ruddy.vercel.app/app/trading"
+            style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#2563eb);color:white;font-size:14px;font-weight:800;text-decoration:none;padding:14px 36px;border-radius:12px;letter-spacing:0.3px;">
+            Open Chart →
+          </a>
+
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="padding:24px 0 0;text-align:center;">
+          <p style="color:rgba(255,255,255,0.2);font-size:11px;margin:0;">
+            TradeFlow Price Alert · You set this alert in the Trading page.
+            <br/>
+            <a href="https://tradeflow-one-ruddy.vercel.app/app/trading" style="color:rgba(124,58,237,0.5);text-decoration:none;">Manage your alerts</a>
+          </p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`.trim()
+
+  return sendEmail(
+    to,
+    `🔔 ${symbol} Alert — price has ${condLabel} ${targetPrice.toFixed(decimals)}`,
+    html,
+  )
+}
+
+// ── Waitlist Email ────────────────────────────────────────────────────────────
+
 export async function sendWaitlistConfirmation({
   to,
   name,
@@ -21,11 +173,6 @@ export async function sendWaitlistConfirmation({
   currency: string
   billing: string
 }) {
-  if (!RESEND_API_KEY) {
-    console.log('No Resend API key — skipping email')
-    return { ok: false, reason: 'no_key' }
-  }
-
   const firstName = name?.split(' ')[0] || 'Trader'
   const planLabel = plan === 'pro' ? 'Edge Pro' : 'Trader'
   const billingLabel = billing === 'annual' ? 'Annual' : 'Monthly'

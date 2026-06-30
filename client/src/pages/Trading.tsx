@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   TrendingUp, TrendingDown, BarChart2, X, RotateCcw, Star,
-  ChevronUp, ChevronDown, Bell, Calculator, History, Trash2, Swords,
+  ChevronUp, ChevronDown, Bell, Calculator, History, Trash2, Swords, Bot, Mail, BellPlus,
 } from 'lucide-react'
+import { sendPriceAlertEmail } from '@/lib/email'
 import { useDemoStore, calcPnl } from '@/store/demoStore'
 import { useLivePrices, getPipSize, BASE_PRICES } from '@/hooks/useLivePrices'
 import { format } from 'date-fns'
@@ -10,6 +11,7 @@ import { useAppStore } from '@/store/appStore'
 import { useNavigate } from 'react-router-dom'
 import PracticeMode from '@/components/trading/PracticeMode'
 import TFChart from '@/components/trading/TFChart'
+import BotDashboard from '@/components/BotDashboard'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const SYMBOLS = ['EURUSD','GBPUSD','USDJPY','AUDUSD','USDCAD','USDCHF','NZDUSD','XAUUSD','GBPJPY','EURJPY','EURGBP','GBPCHF']
@@ -27,7 +29,121 @@ const LAYOUTS: { id: Layout; icon: string; label: string; slots: number }[] = [
   { id:'2x2', icon:'⊞', label:'4 charts', slots:4 },
 ]
 
-interface Alert { id:string; symbol:string; price:number; condition:'above'|'below'; triggered:boolean; note:string }
+interface Alert { id:string; symbol:string; price:number; condition:'above'|'below'; triggered:boolean; note:string; emailAlert:boolean; email?:string }
+
+// ── Quick Alert Popup (from chart bell button) ─────────────────────────────────
+function QuickAlertPopup({
+  symbol, currentPrice, onAdd, onClose,
+  userEmail,
+}: {
+  symbol: string
+  currentPrice: number
+  onAdd: (a: Omit<Alert,'id'|'triggered'>) => void
+  onClose: () => void
+  userEmail?: string
+}) {
+  const [price, setPrice]     = useState(currentPrice.toFixed(dec(symbol)))
+  const [cond,  setCond]      = useState<'above'|'below'>('above')
+  const [note,  setNote]      = useState('')
+  const [email, setEmail]     = useState(true)
+  const [sent,  setSent]      = useState(false)
+
+  const handleAdd = () => {
+    const p = parseFloat(price)
+    if (!p) return
+    onAdd({ symbol, price: p, condition: cond, note, emailAlert: email, email: userEmail })
+    setSent(true)
+    setTimeout(onClose, 800)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4" onClick={onClose}>
+      <div
+        className="bg-[#1a1f2e] border border-[#2a2f3e] rounded-2xl shadow-2xl w-full max-w-sm p-5"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+              <BellPlus size={15} className="text-amber-400" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">Set Price Alert</p>
+              <p className="text-xs text-slate-500">{symbol} · {currentPrice.toFixed(dec(symbol))}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Condition row */}
+        <div className="flex gap-2 mb-3">
+          {(['above','below'] as const).map(c => (
+            <button key={c} onClick={() => setCond(c)}
+              className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition capitalize ${
+                cond === c
+                  ? c === 'above'
+                    ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
+                    : 'bg-red-500/20 border-red-500/50 text-red-400'
+                  : 'border-[#2a2f3e] text-slate-500 hover:text-slate-300'
+              }`}>
+              {c === 'above' ? '↑ Above' : '↓ Below'}
+            </button>
+          ))}
+        </div>
+
+        {/* Price input */}
+        <input
+          type="number"
+          value={price}
+          onChange={e => setPrice(e.target.value)}
+          className="w-full mb-3 px-3 py-2.5 rounded-lg border border-[#2a2f3e] bg-[#0e1117] text-white text-sm focus:outline-none focus:ring-1 focus:ring-brand-500/50"
+          placeholder="Target price"
+        />
+
+        {/* Note */}
+        <input
+          value={note}
+          onChange={e => setNote(e.target.value)}
+          className="w-full mb-3 px-3 py-2.5 rounded-lg border border-[#2a2f3e] bg-[#0e1117] text-white text-sm placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-brand-500/50"
+          placeholder="Note (optional)"
+        />
+
+        {/* Email toggle */}
+        {userEmail && (
+          <button
+            onClick={() => setEmail(e => !e)}
+            className={`w-full mb-3 flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-xs font-medium transition ${
+              email
+                ? 'border-blue-500/40 bg-blue-500/10 text-blue-400'
+                : 'border-[#2a2f3e] text-slate-500 hover:text-slate-300'
+            }`}>
+            <Mail size={13} />
+            <span className="flex-1 text-left">Email me at {userEmail}</span>
+            <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${email ? 'border-blue-400 bg-blue-400' : 'border-slate-600'}`}>
+              {email && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+            </span>
+          </button>
+        )}
+
+        {/* Submit */}
+        {sent ? (
+          <div className="w-full py-2.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm font-semibold text-center">
+            ✓ Alert set!
+          </div>
+        ) : (
+          <button
+            onClick={handleAdd}
+            className="w-full py-2.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold transition">
+            Set Alert
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
 
 // ── Chart Slot (symbol picker + our chart) ────────────────────────────────────
 function ChartSlot({ symbol, onSymbolChange, prices }: {
@@ -71,12 +187,18 @@ function ChartSlot({ symbol, onSymbolChange, prices }: {
 }
 
 // ── Alerts Panel ──────────────────────────────────────────────────────────────
-function AlertsPanel({ prices }: { prices: Record<string, number> }) {
+function AlertsPanel({ prices, userEmail, pendingAlerts = [], onPendingConsumed }: {
+  prices: Record<string, number>
+  userEmail?: string
+  pendingAlerts?: Array<Omit<Alert,'id'|'triggered'>>
+  onPendingConsumed?: () => void
+}) {
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [sym, setSym] = useState('EURUSD')
   const [price, setPrice] = useState('')
   const [cond, setCond] = useState<'above'|'below'>('above')
   const [note, setNote] = useState('')
+  const [emailAlert, setEmailAlert] = useState(true)
   const [permDenied, setPermDenied] = useState(false)
 
   const requestNotifPerm = async () => {
@@ -87,13 +209,27 @@ function AlertsPanel({ prices }: { prices: Record<string, number> }) {
     return res === 'granted'
   }
 
-  const addAlert = async () => {
+  const addAlert = async (override?: Omit<Alert,'id'|'triggered'>) => {
+    if (override) {
+      setAlerts(prev => [...prev, { id: `al-${Date.now()}`, triggered: false, ...override }])
+      return
+    }
     const p = parseFloat(price)
     if (!p) return
-    const ok = await requestNotifPerm()
-    setAlerts(prev => [...prev, { id: `al-${Date.now()}`, symbol: sym, price: p, condition: cond, triggered: false, note }])
+    await requestNotifPerm()
+    setAlerts(prev => [...prev, {
+      id: `al-${Date.now()}`, symbol: sym, price: p, condition: cond,
+      triggered: false, note, emailAlert, email: emailAlert ? userEmail : undefined,
+    }])
     setPrice(''); setNote('')
   }
+
+  // Consume quick-alert popup entries
+  useEffect(() => {
+    if (!pendingAlerts.length) return
+    setAlerts(prev => [...prev, ...pendingAlerts.map(a => ({ id: `al-${Date.now()}-${Math.random()}`, triggered: false, ...a }))])
+    onPendingConsumed?.()
+  }, [pendingAlerts])
 
   // Check alerts against live prices
   useEffect(() => {
@@ -103,11 +239,23 @@ function AlertsPanel({ prices }: { prices: Record<string, number> }) {
       if (!cur) return al
       const hit = (al.condition === 'above' && cur >= al.price) || (al.condition === 'below' && cur <= al.price)
       if (hit) {
+        // Browser notification
         if (Notification.permission === 'granted') {
           new Notification(`🔔 TradeFlow Alert — ${al.symbol}`, {
             body: `Price ${al.condition === 'above' ? 'reached above' : 'fell below'} ${al.price.toFixed(dec(al.symbol))}${al.note ? `\n${al.note}` : ''}`,
             icon: '/logo.svg',
           })
+        }
+        // Email notification
+        if (al.emailAlert && al.email) {
+          sendPriceAlertEmail({
+            to: al.email,
+            symbol: al.symbol,
+            condition: al.condition,
+            targetPrice: al.price,
+            currentPrice: cur,
+            note: al.note || undefined,
+          }).catch(() => {})
         }
         return { ...al, triggered: true }
       }
@@ -139,7 +287,16 @@ function AlertsPanel({ prices }: { prices: Record<string, number> }) {
           className="w-full text-xs px-2 py-1.5 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-brand-400" />
         <input value={note} onChange={e => setNote(e.target.value)} placeholder="Optional note"
           className="w-full text-xs px-2 py-1.5 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-brand-400" />
-        <button onClick={addAlert} className="w-full py-1.5 text-xs font-semibold bg-brand-500 hover:bg-brand-600 text-white rounded-lg transition">
+        {/* Email toggle */}
+        {userEmail && (
+          <button onClick={() => setEmailAlert(e => !e)}
+            className={`w-full flex items-center gap-1.5 py-1.5 px-2 rounded-lg border text-[11px] font-medium transition ${emailAlert ? 'border-blue-400/40 bg-blue-500/10 text-blue-400' : 'border-gray-200 dark:border-gray-700 text-gray-400'}`}>
+            <Mail className="w-3 h-3" />
+            <span className="flex-1 text-left truncate">Email: {userEmail}</span>
+            <span className={`w-3 h-3 rounded-full border ${emailAlert ? 'border-blue-400 bg-blue-400' : 'border-gray-400'}`} />
+          </button>
+        )}
+        <button onClick={() => addAlert()} className="w-full py-1.5 text-xs font-semibold bg-brand-500 hover:bg-brand-600 text-white rounded-lg transition">
           + Set Alert
         </button>
       </div>
@@ -154,6 +311,7 @@ function AlertsPanel({ prices }: { prices: Record<string, number> }) {
               <p className="font-semibold text-gray-700 dark:text-gray-300">{al.symbol} {al.condition} {al.price.toFixed(dec(al.symbol))}</p>
               {al.note && <p className="text-gray-400 truncate">{al.note}</p>}
               <p className="text-gray-400">Now: {(prices[al.symbol] ?? 0).toFixed(dec(al.symbol))}</p>
+              {al.emailAlert && <p className="text-blue-400 flex items-center gap-1"><Mail className="w-2.5 h-2.5" />Email on</p>}
             </div>
             <button onClick={() => setAlerts(p => p.filter(a => a.id !== al.id))} className="text-gray-300 dark:text-gray-600 hover:text-red-400 transition">
               <Trash2 className="w-3 h-3" />
@@ -362,12 +520,17 @@ export default function Trading() {
   const [activeSlot, setActiveSlot] = useState(0)
   const [showOrder, setShowOrder] = useState(false)
   const [showReset, setShowReset] = useState(false)
+  const [showQuickAlert, setShowQuickAlert] = useState(false)
   const [activeTab, setActiveTab] = useState<'positions'|'history'>('positions')
   const [rightPanel, setRightPanel] = useState<'watchlist'|'alerts'|'stats'>('watchlist')
   const [starred, setStarred] = useState(['EURUSD','XAUUSD'])
   const [practiceMode, setPracticeMode] = useState(false)
+  const [botMode, setBotMode] = useState(false)
+  const [pendingAlerts, setPendingAlerts] = useState<Array<Omit<Alert,'id'|'triggered'>>>([])
   const { prices, direction } = useLivePrices(SYMBOLS)
   const { balance, positions, history, closePosition, resetAccount } = useDemoStore()
+  const { user } = useAppStore()
+  const userEmail = user?.email ?? undefined
 
   const toggleStar = (s: string) => setStarred(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s])
   const activeSymbol = slots[activeSlot] ?? 'EURUSD'
@@ -394,6 +557,15 @@ export default function Trading() {
   return (
     <div className="flex h-full overflow-hidden">
       {showOrder && <OrderModal symbol={activeSymbol} price={prices[activeSymbol] ?? 1} onClose={() => setShowOrder(false)} />}
+      {showQuickAlert && (
+        <QuickAlertPopup
+          symbol={activeSymbol}
+          currentPrice={prices[activeSymbol] ?? 1}
+          userEmail={userEmail}
+          onAdd={a => setPendingAlerts(p => [...p, a])}
+          onClose={() => setShowQuickAlert(false)}
+        />
+      )}
       {showReset && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white dark:bg-[#1e1e1e] rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
@@ -436,8 +608,16 @@ export default function Trading() {
             <span>P&L: <strong className={openPnl>=0?'text-emerald-600':'text-red-500'}>{openPnl>=0?'+':''}${openPnl.toFixed(2)}</strong></span>
             <span>Equity: <strong className="text-gray-700 dark:text-gray-300">${equity.toFixed(0)}</strong></span>
           </div>
-          {!practiceMode && (
-            <button onClick={() => setShowOrder(true)} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg transition shadow-sm">New Order</button>
+          {!practiceMode && !botMode && (
+            <>
+              <button
+                onClick={() => setShowQuickAlert(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-amber-400/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold rounded-lg transition"
+                title="Set price alert">
+                <BellPlus className="w-3.5 h-3.5" /> Alert
+              </button>
+              <button onClick={() => setShowOrder(true)} className="px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold rounded-lg transition shadow-sm">New Order</button>
+            </>
           )}
           {/* Practice Mode toggle */}
           <button
@@ -450,13 +630,26 @@ export default function Trading() {
             <Swords className="w-3.5 h-3.5" />
             {practiceMode ? 'Live Mode' : 'Practice'}
           </button>
-          {!practiceMode && (
+          {/* AI Bot toggle */}
+          <button
+            onClick={() => { setBotMode(b => !b); if (practiceMode) setPracticeMode(false) }}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition border ${
+              botMode
+                ? 'bg-blue-600 text-white border-blue-600 shadow shadow-blue-500/30'
+                : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}>
+            <Bot className="w-3.5 h-3.5" />
+            AI Bot
+          </button>
+          {!practiceMode && !botMode && (
             <button onClick={() => setShowReset(true)} title="Reset demo" className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition"><RotateCcw className="w-3.5 h-3.5" /></button>
           )}
         </div>
 
-        {/* Practice mode fills the rest; live mode shows chart grid */}
-        {practiceMode ? (
+        {/* Practice mode fills the rest; bot mode shows bot dashboard; live mode shows chart grid */}
+        {botMode ? (
+          <BotDashboard />
+        ) : practiceMode ? (
           <PracticeMode initialSymbol={activeSymbol} onClose={() => setPracticeMode(false)} />
         ) : (
           <>
@@ -555,7 +748,7 @@ export default function Trading() {
         <div className="flex border-b border-gray-100 dark:border-gray-800 shrink-0">
           {([
             { id: 'watchlist', icon: <TrendingUp className="w-3.5 h-3.5" />, label: 'Watch' },
-            { id: 'alerts', icon: <Bell className="w-3.5 h-3.5" />, label: 'Alerts' },
+          { id: 'alerts', icon: <Bell className="w-3.5 h-3.5" />, label: 'Alerts' },
             { id: 'stats', icon: <Calculator className="w-3.5 h-3.5" />, label: 'Tools' },
           ] as const).map(tab => (
             <button key={tab.id} onClick={() => setRightPanel(tab.id)}
@@ -594,7 +787,7 @@ export default function Trading() {
             </div>
           )}
 
-          {rightPanel === 'alerts' && <AlertsPanel prices={prices} />}
+          {rightPanel === 'alerts' && <AlertsPanel prices={prices} userEmail={userEmail} pendingAlerts={pendingAlerts} onPendingConsumed={() => setPendingAlerts([])} />}
           {rightPanel === 'stats' && <StatsPanel prices={prices} activeSymbol={activeSymbol} />}
         </div>
       </div>

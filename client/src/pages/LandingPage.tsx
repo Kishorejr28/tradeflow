@@ -4,7 +4,7 @@ import { useAppStore } from '@/store/appStore'
 import {
   TrendingUp, Play, BarChart2, BookOpen, FileText, Leaf,
   ChevronRight, Check, Star, ArrowRight, Newspaper,
-  RefreshCw, Target, Zap, Globe, Lock, Sparkles, NotebookPen,
+  RefreshCw, Target, Zap, Globe, Lock, Sparkles, NotebookPen, BellRing,
 } from 'lucide-react'
 
 // ── Animated Candlestick Chart ────────────────────────────────────────────────
@@ -176,10 +176,11 @@ const FEATURES = [
   { icon: FileText,   title: 'Trading Journal',     desc: 'Log every trade with emotions, plan adherence, notes and voice reflections. Calendar view shows patterns.', color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
   { icon: BookOpen,   title: 'Edge Plans',          desc: 'Build your trading playbook with step-by-step charting processes, entry criteria and invalidation rules.',  color: 'text-blue-600',    bg: 'bg-blue-50 dark:bg-blue-500/10' },
   { icon: BarChart2,  title: 'Live Trading',        desc: 'TradingView charts with multi-layout, watchlist, price alerts, pip calculator and a $100k demo account.',  color: 'text-purple-600',  bg: 'bg-purple-50 dark:bg-purple-500/10' },
+  { icon: BellRing,   title: 'Email Price Alerts',  desc: "Set a price target on any instrument — get an instant email the moment it's hit, even when you're away from the screen.", color: 'text-amber-600',   bg: 'bg-amber-50 dark:bg-amber-500/10' },
   { icon: Newspaper,  title: 'Economic Calendar',   desc: 'Live economic events filtered by currency and impact. Never get caught off-guard by high-impact news.',    color: 'text-orange-600',  bg: 'bg-orange-50 dark:bg-orange-500/10' },
   { icon: NotebookPen,title: 'Notebook',            desc: 'Your personal trading library. Write notes, use templates (Daily Review, Pre-Market Prep) and save lessons.', color: 'text-pink-600',   bg: 'bg-pink-50 dark:bg-pink-500/10' },
   { icon: Leaf,       title: 'Sanctuary',           desc: 'Meditation timer with guided ambient audio — ocean, rain, forest, binaural beats. Reset your mind before every session.', color: 'text-teal-600', bg: 'bg-teal-50 dark:bg-teal-500/10' },
-  { icon: Target,     title: 'Performance Stats',   desc: 'Dashboard with equity curve, win rate, average R, P&L calendar. See your progress at a glance every day.', color: 'text-amber-600',  bg: 'bg-amber-50 dark:bg-amber-500/10' },
+  { icon: Target,     title: 'Performance Stats',   desc: 'Dashboard with equity curve, win rate, average R, P&L calendar. See your progress at a glance every day.', color: 'text-sky-600',  bg: 'bg-sky-50 dark:bg-sky-500/10' },
 ]
 
 const MARKETS = [
