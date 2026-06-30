@@ -345,7 +345,7 @@ async function fetchFromSupabase(): Promise<{ summary: Partial<BotSummary>; sour
       instrument:     p.instrument,
       direction:      p.direction,
       entry_price:    p.entry_price,
-      exit_price:     null,
+      exit_price:     p.current_price,   // current price stored here
       stop_loss:      p.stop_loss,
       take_profit:    p.take_profit,
       position_size:  p.position_size,
@@ -356,7 +356,9 @@ async function fetchFromSupabase(): Promise<{ summary: Partial<BotSummary>; sour
       status:         'open' as const,
     }))
 
-    const recent_closed = closed.map((t: any) => ({
+    // Use recent_closed from bot_status JSON (full detail, synced by bot)
+    const rcRaw = s.recent_closed ? JSON.parse(s.recent_closed) : []
+    const recent_closed = rcRaw.length > 0 ? rcRaw : closed.map((t: any) => ({
       trade_id:        t.id,
       timestamp_open:  t.entry_time,
       timestamp_close: t.exit_time,
@@ -375,6 +377,9 @@ async function fetchFromSupabase(): Promise<{ summary: Partial<BotSummary>; sour
       status:          'closed' as const,
     }))
 
+    // Strategies from bot_status JSON
+    const strategies = s.strategies ? JSON.parse(s.strategies) : []
+
     const alerts: any[] = (s.recent_alerts ? JSON.parse(s.recent_alerts) : [])
       .map((a: any, i: number) => ({ id: i, ...a }))
 
@@ -385,7 +390,7 @@ async function fetchFromSupabase(): Promise<{ summary: Partial<BotSummary>; sour
       summary: {
         open_trades,
         recent_closed,
-        strategies: [],
+        strategies,
         alerts,
         snapshot: {
           equity:      s.equity,
