@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { botApi, BotSummary } from '@/lib/botApi'
-import { RefreshCw, WifiOff, Activity } from 'lucide-react'
+import { RefreshCw, WifiOff, Activity, X } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
@@ -29,6 +29,92 @@ function KpiCard({ label, value, sub, positive }: { label: string; value: string
       <p className={`text-xl font-bold ${positive === undefined ? 'text-white' : positive ? 'text-emerald-400' : 'text-red-400'}`}>{value}</p>
       {sub && <p className={`text-xs mt-0.5 ${positive === undefined ? 'text-slate-400' : positive ? 'text-emerald-500' : 'text-red-500'}`}>{sub}</p>}
     </div>
+  )
+}
+
+// ── Close button with confirm ─────────────────────────────────────────────────
+function CloseButton({
+  tradeId, instrument, unrealPnl, onClosed,
+}: {
+  tradeId: string
+  instrument: string
+  unrealPnl: number | null
+  onClosed: () => void
+}) {
+  const [state, setState] = useState<'idle' | 'confirm' | 'closing' | 'done'>('idle')
+  const [error, setError] = useState('')
+
+  const handleClose = async () => {
+    setState('closing')
+    setError('')
+    try {
+      const symbol = instrument.replace('/', '')
+      const res = await fetch(`http://localhost:8000/alpaca/positions/${symbol}`, {
+        method: 'DELETE',
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (res.ok) {
+        setState('done')
+        setTimeout(onClosed, 1000)
+      } else {
+        const d = await res.json().catch(() => ({}))
+        setError(d.detail || 'Close failed')
+        setState('confirm')
+      }
+    } catch (e: any) {
+      setError(e.message || 'Network error')
+      setState('confirm')
+    }
+  }
+
+  if (state === 'done') {
+    return <span className="text-xs text-emerald-400 font-semibold">Closed ✓</span>
+  }
+
+  if (state === 'closing') {
+    return (
+      <div className="flex items-center gap-1 text-xs text-slate-400">
+        <RefreshCw size={12} className="animate-spin" /> Closing…
+      </div>
+    )
+  }
+
+  if (state === 'confirm') {
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <p className="text-[10px] text-slate-400 text-right max-w-[120px]">
+          Close at market?
+          {unrealPnl !== null && (
+            <span className={unrealPnl >= 0 ? ' text-emerald-400' : ' text-red-400'}>
+              {' '}{unrealPnl >= 0 ? '+' : ''}{fmt$(unrealPnl)}
+            </span>
+          )}
+        </p>
+        {error && <p className="text-[10px] text-red-400">{error}</p>}
+        <div className="flex gap-1">
+          <button
+            onClick={() => setState('idle')}
+            className="px-2 py-1 text-[11px] text-slate-400 hover:text-slate-200 border border-[#2a2f3e] rounded transition">
+            Cancel
+          </button>
+          <button
+            onClick={handleClose}
+            className="px-2 py-1 text-[11px] font-semibold bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/40 rounded transition">
+            Confirm Close
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // idle
+  return (
+    <button
+      onClick={() => setState('confirm')}
+      title="Close this position"
+      className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-red-400 border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition shrink-0">
+      <X size={12} /> Close
+    </button>
   )
 }
 
@@ -397,7 +483,6 @@ export default function AiBotPage() {
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Open Positions ({open_trades.length})</p>
               <div className="bg-[#1a1f2e] border border-[#2a2f3e] rounded-xl overflow-hidden">
                 {open_trades.length ? open_trades.map(t => {
-                  // Look up live Alpaca data for this position
                   const alpacaSym  = t.instrument.replace('/', '')
                   const live       = livePos[alpacaSym] || livePos[t.instrument]
                   const currPrice  = live ? parseFloat(live.current_price)   : null
@@ -406,8 +491,6 @@ export default function AiBotPage() {
                   const isLong     = t.direction === 'long'
                   const pnlColor   = unrealPnl === null ? 'text-slate-400'
                                    : unrealPnl >= 0 ? 'text-emerald-400' : 'text-red-400'
-
-                  // Progress bar: how far price has moved toward TP from entry
                   const entryP = t.entry_price
                   const tpP    = t.take_profit
                   const slP    = t.stop_loss
@@ -419,20 +502,20 @@ export default function AiBotPage() {
 
                   return (
                     <div key={t.trade_id} className="px-4 py-3 border-b border-[#1e2330] last:border-0">
-                      <div className="flex items-center justify-between">
-                        {/* Left: direction badge + instrument + strategy */}
-                        <div className="flex items-center gap-3">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded ${isLong ? 'bg-emerald-400/20 text-emerald-400' : 'bg-red-400/20 text-red-400'}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        {/* Left */}
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded shrink-0 ${isLong ? 'bg-emerald-400/20 text-emerald-400' : 'bg-red-400/20 text-red-400'}`}>
                             {t.direction.toUpperCase()}
                           </span>
-                          <div>
+                          <div className="min-w-0">
                             <p className="text-sm font-semibold text-white">{t.instrument}</p>
                             <p className="text-xs text-slate-500">{t.strategy_name.replace(/_/g, ' ')}</p>
                           </div>
                         </div>
 
-                        {/* Right: live P&L (big) + price info */}
-                        <div className="text-right">
+                        {/* Centre: live P&L */}
+                        <div className="text-center">
                           {unrealPnl !== null ? (
                             <>
                               <p className={`text-base font-bold ${pnlColor}`}>
@@ -444,31 +527,37 @@ export default function AiBotPage() {
                               </p>
                             </>
                           ) : (
-                            <p className="text-sm text-slate-400">P&L loading…</p>
+                            <p className="text-sm text-slate-500">loading…</p>
                           )}
-                          <p className="text-xs text-slate-600 mt-0.5">
+                          <p className="text-[10px] text-slate-600 mt-0.5">
                             Entry ${entryP.toFixed(entryP > 100 ? 2 : 4)}
-                            {tpP ? ` · TP $${tpP.toFixed(tpP > 100 ? 2 : 4)}` : ' · Trailing'}
                           </p>
                         </div>
+
+                        {/* Right: Close button */}
+                        <CloseButton
+                          tradeId={t.trade_id}
+                          instrument={t.instrument}
+                          unrealPnl={unrealPnl}
+                          onClosed={load}
+                        />
                       </div>
 
-                      {/* Progress bar toward TP */}
-                      {progress !== null && tpP && (
-                        <div className="mt-2">
-                          <div className="flex justify-between text-[10px] text-slate-600 mb-0.5">
-                            <span>SL ${slP.toFixed(slP > 100 ? 2 : 4)}</span>
-                            <span className="text-slate-500">{progress.toFixed(0)}% to TP</span>
-                            <span>TP ${tpP.toFixed(tpP > 100 ? 2 : 4)}</span>
-                          </div>
+                      {/* SL/TP info + progress bar */}
+                      <div className="mt-2">
+                        <p className="text-[10px] text-slate-600 mb-1">
+                          SL ${slP.toFixed(slP > 100 ? 2 : 4)}
+                          {tpP ? ` · TP $${tpP.toFixed(tpP > 100 ? 2 : 4)}` : ' · Trailing stop'}
+                        </p>
+                        {progress !== null && tpP && (
                           <div className="h-1.5 bg-[#2a2f3e] rounded-full overflow-hidden">
                             <div
                               className={`h-full rounded-full transition-all ${unrealPnl !== null && unrealPnl >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`}
                               style={{ width: `${Math.max(2, progress)}%` }}
                             />
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   )
                 }) : <p className="text-sm text-slate-500 text-center py-6">No open positions</p>}
