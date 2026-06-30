@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import {
   TrendingUp, TrendingDown, BarChart2, X, RotateCcw, Star,
-  ChevronUp, ChevronDown, Bell, Calculator, History, Trash2, Swords, Bot, Mail, BellPlus,
+  ChevronUp, ChevronDown, Bell, Calculator, History, Trash2, Swords, Bot, Mail, BellPlus, Zap,
 } from 'lucide-react'
 import { sendPriceAlertEmail } from '@/lib/email'
 import { useDemoStore, calcPnl } from '@/store/demoStore'
+import { useAlpacaStore } from '@/store/alpacaStore'
 import { useLivePrices, getPipSize, BASE_PRICES } from '@/hooks/useLivePrices'
 import { format } from 'date-fns'
 import { useAppStore } from '@/store/appStore'
@@ -512,6 +513,132 @@ function StarredBar({ starred, prices, direction, active, onSelect, onUnstar }: 
   )
 }
 
+// ── Paper Trading View ─────────────────────────────────────────────────────────
+function PaperTradingView({ symbol, prices, alpaca, layout, setLayout, slots, setSlots, activeSlot, setActiveSlot, starred, direction, onStar }: any) {
+  const [showOrder, setShowOrder] = useState(false)
+  const [orderSide, setOrderSide] = useState<'buy'|'sell'>('buy')
+  const [qty, setQty] = useState('0.01')
+  const [placing, setPlacing] = useState(false)
+  const [orderError, setOrderError] = useState('')
+
+  const gridClass: Record<Layout, string> = {
+    '1x1': 'grid-cols-1 grid-rows-1',
+    '2x1': 'grid-cols-2 grid-rows-1',
+    '1x2': 'grid-cols-1 grid-rows-2',
+    '2x2': 'grid-cols-2 grid-rows-2',
+  }
+  const activeCount = LAYOUTS.find(l => l.id === layout)!.slots
+
+  // Map TradeFlow symbol (EURUSD) → Alpaca symbol (EURUSD for forex, BTCUSD for crypto)
+  const alpacaSymbol = symbol.replace('/', '')
+
+  const placeOrder = async () => {
+    setPlacing(true); setOrderError('')
+    try {
+      await alpaca.placeOrder({ symbol: alpacaSymbol, qty: parseFloat(qty), side: orderSide })
+      setShowOrder(false)
+    } catch (e: any) {
+      setOrderError(e.message)
+    } finally {
+      setPlacing(false)
+    }
+  }
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0">
+      {/* Paper mode info bar */}
+      <div className="flex items-center gap-3 px-3 py-1.5 bg-blue-500/5 border-b border-blue-500/20 shrink-0">
+        <Zap className="w-3.5 h-3.5 text-blue-400" />
+        <span className="text-xs text-blue-300 font-medium">Paper Trading — Alpaca</span>
+        {alpaca.loading && <span className="text-[10px] text-blue-400 animate-pulse">Syncing...</span>}
+        {alpaca.error && <span className="text-[10px] text-red-400">{alpaca.error}</span>}
+        <div className="flex-1" />
+        <button onClick={() => setShowOrder(true)}
+          className="px-3 py-1 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">
+          Place Order
+        </button>
+      </div>
+
+      {/* Order modal */}
+      {showOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowOrder(false)}>
+          <div className="bg-[#1a1f2e] border border-[#2a2f3e] rounded-2xl p-5 w-80 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <p className="font-semibold text-white">Place Paper Order</p>
+              <button onClick={() => setShowOrder(false)} className="text-slate-500 hover:text-white"><X size={16}/></button>
+            </div>
+            <p className="text-xs text-slate-400 mb-3">Symbol: <strong className="text-white">{alpacaSymbol}</strong> · Price: <strong className="text-white">${(prices[symbol]??0).toFixed(dec(symbol))}</strong></p>
+            {/* Buy / Sell */}
+            <div className="flex gap-2 mb-3">
+              {(['buy','sell'] as const).map(s => (
+                <button key={s} onClick={() => setOrderSide(s)}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold border transition capitalize ${orderSide===s ? s==='buy' ? 'bg-emerald-500 border-emerald-500 text-white' : 'bg-red-500 border-red-500 text-white' : 'border-[#2a2f3e] text-slate-400'}`}>
+                  {s === 'buy' ? '▲ Buy' : '▼ Sell'}
+                </button>
+              ))}
+            </div>
+            <label className="block text-xs text-slate-500 mb-1">Quantity (BTC/lots)</label>
+            <input value={qty} onChange={e => setQty(e.target.value)} type="number" step="0.01"
+              className="w-full mb-3 px-3 py-2 rounded-lg border border-[#2a2f3e] bg-[#0e1117] text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            {orderError && <p className="text-xs text-red-400 mb-2">{orderError}</p>}
+            <button onClick={placeOrder} disabled={placing}
+              className={`w-full py-2.5 rounded-lg text-sm font-bold text-white transition ${orderSide==='buy' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-red-500 hover:bg-red-600'} disabled:opacity-50`}>
+              {placing ? 'Placing...' : `${orderSide==='buy'?'Buy':'Sell'} ${qty} ${alpacaSymbol}`}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Charts */}
+      <StarredBar starred={starred} prices={prices} direction={direction} active={symbol} onSelect={s => { setSlots((p: any) => { const n=[...p]; n[activeSlot]=s; return n }) }} onUnstar={onStar} />
+      <div className={`flex-1 min-h-0 grid gap-0.5 p-0.5 bg-gray-200 dark:bg-gray-900 ${gridClass[layout as Layout]}`}>
+        {Array.from({ length: activeCount }).map((_, i) => (
+          <div key={i} onClick={() => setActiveSlot(i)}
+            className={`relative min-h-0 rounded overflow-hidden ${activeSlot===i && activeCount>1 ? 'ring-2 ring-blue-500' : ''}`}>
+            <ChartSlot symbol={slots[i] ?? SYMBOLS[i]} onSymbolChange={s => setSlots((p: any) => { const n=[...p]; n[i]=s; return n })} prices={prices} />
+          </div>
+        ))}
+      </div>
+
+      {/* Positions strip */}
+      <div className="border-t border-blue-500/20 bg-[#0e1117] shrink-0" style={{ height: 160 }}>
+        <div className="flex items-center gap-3 px-4 py-1.5 border-b border-blue-500/10">
+          <span className="text-xs font-semibold text-blue-400">Alpaca Positions ({alpaca.positions.length})</span>
+          <button onClick={() => alpaca.sync()} className="text-[10px] text-slate-500 hover:text-blue-400 transition">↻ Refresh</button>
+        </div>
+        <div className="overflow-y-auto h-[calc(100%-28px)]">
+          {alpaca.positions.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-xs text-slate-500">No open positions — place an order above</div>
+          ) : (
+            <table className="w-full text-xs">
+              <thead><tr className="text-slate-500 bg-[#1a1f2e]">
+                {['Symbol','Side','Qty','Entry','Current','P&L','P&L %','Action'].map(h => <th key={h} className="text-left px-3 py-1.5 font-medium">{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {alpaca.positions.map((pos: any) => (
+                  <tr key={pos.symbol} className="border-t border-[#1e2330] hover:bg-[#1e2330]/50">
+                    <td className="px-3 py-1.5 font-semibold text-white">{pos.symbol}</td>
+                    <td className={`px-3 py-1.5 font-bold uppercase ${pos.side==='long'?'text-emerald-400':'text-red-400'}`}>{pos.side}</td>
+                    <td className="px-3 py-1.5 text-slate-300">{pos.qty}</td>
+                    <td className="px-3 py-1.5 font-mono text-slate-400">${pos.avg_entry_price.toFixed(2)}</td>
+                    <td className="px-3 py-1.5 font-mono text-white">${pos.current_price.toFixed(2)}</td>
+                    <td className={`px-3 py-1.5 font-semibold ${pos.unrealized_pl>=0?'text-emerald-400':'text-red-400'}`}>${pos.unrealized_pl.toFixed(2)}</td>
+                    <td className={`px-3 py-1.5 ${pos.unrealized_plpc>=0?'text-emerald-400':'text-red-400'}`}>{(pos.unrealized_plpc*100).toFixed(2)}%</td>
+                    <td className="px-3 py-1.5">
+                      <button onClick={() => alpaca.closePosition(pos.symbol)}
+                        className="px-2 py-0.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20 font-medium transition text-[11px]">Close</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function Trading() {
   const navigate = useNavigate()
@@ -526,10 +653,20 @@ export default function Trading() {
   const [starred, setStarred] = useState(['EURUSD','XAUUSD'])
   const [practiceMode, setPracticeMode] = useState(false)
   const [botMode, setBotMode] = useState(false)
+  const [paperMode, setPaperMode] = useState(false)
   const [pendingAlerts, setPendingAlerts] = useState<Array<Omit<Alert,'id'|'triggered'>>>([])
   const { prices, direction } = useLivePrices(SYMBOLS)
   const { balance, positions, history, closePosition, resetAccount } = useDemoStore()
+  const alpaca = useAlpacaStore()
   const { user } = useAppStore()
+
+  // Sync Alpaca data whenever paper mode is active
+  useEffect(() => {
+    if (!paperMode) return
+    alpaca.checkAvailable().then(ok => { if (ok) alpaca.sync() })
+    const id = setInterval(() => { if (paperMode) alpaca.sync() }, 15_000)
+    return () => clearInterval(id)
+  }, [paperMode])
   const userEmail = user?.email ?? undefined
 
   const toggleStar = (s: string) => setStarred(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s])
@@ -588,7 +725,11 @@ export default function Trading() {
           <span className={`text-xs font-mono font-bold tabular-nums ${direction[activeSymbol]==='up'?'text-emerald-500':'text-red-500'}`}>
             {(prices[activeSymbol]??0).toFixed(dec(activeSymbol))}
           </span>
-          <span className="flex items-center px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[10px] font-semibold">DEMO</span>
+          <span className={`flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+            paperMode
+              ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300'
+              : 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400'
+          }`}>{paperMode ? 'PAPER' : 'DEMO'}</span>
 
           {/* Layout switcher — hidden in practice mode */}
           {!practiceMode && (
@@ -604,9 +745,19 @@ export default function Trading() {
 
           <div className="flex-1" />
           <div className="flex items-center gap-3 text-xs text-gray-400">
-            <span>Balance: <strong className="text-gray-700 dark:text-gray-300">${balance.toLocaleString()}</strong></span>
-            <span>P&L: <strong className={openPnl>=0?'text-emerald-600':'text-red-500'}>{openPnl>=0?'+':''}${openPnl.toFixed(2)}</strong></span>
-            <span>Equity: <strong className="text-gray-700 dark:text-gray-300">${equity.toFixed(0)}</strong></span>
+            {paperMode ? (
+              <>
+                <span>Balance: <strong className="text-blue-400">${(alpaca.account?.cash ?? 0).toLocaleString(undefined,{maximumFractionDigits:0})}</strong></span>
+                <span>P&L: <strong className={(alpaca.account?.daily_pnl??0)>=0?'text-emerald-600':'text-red-500'}>{(alpaca.account?.daily_pnl??0)>=0?'+':''}${(alpaca.account?.daily_pnl??0).toFixed(2)}</strong></span>
+                <span>Equity: <strong className="text-blue-400">${(alpaca.account?.equity ?? 0).toFixed(0)}</strong></span>
+              </>
+            ) : (
+              <>
+                <span>Balance: <strong className="text-gray-700 dark:text-gray-300">${balance.toLocaleString()}</strong></span>
+                <span>P&L: <strong className={openPnl>=0?'text-emerald-600':'text-red-500'}>{openPnl>=0?'+':''}${openPnl.toFixed(2)}</strong></span>
+                <span>Equity: <strong className="text-gray-700 dark:text-gray-300">${equity.toFixed(0)}</strong></span>
+              </>
+            )}
           </div>
           {!practiceMode && !botMode && (
             <>
@@ -630,6 +781,24 @@ export default function Trading() {
             <Swords className="w-3.5 h-3.5" />
             {practiceMode ? 'Live Mode' : 'Practice'}
           </button>
+          {/* Paper Trading toggle */}
+          <button
+            onClick={() => {
+              const next = !paperMode
+              setPaperMode(next)
+              if (next) { setPracticeMode(false); setBotMode(false) }
+            }}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition border ${
+              paperMode
+                ? 'bg-blue-600 text-white border-blue-600 shadow shadow-blue-500/30'
+                : alpaca.available
+                  ? 'border-blue-400/50 text-blue-400 hover:bg-blue-500/10'
+                  : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+            title={alpaca.available ? 'Switch to Alpaca paper trading' : 'Start the bot API server to enable paper trading'}>
+            <Zap className="w-3.5 h-3.5" />
+            {paperMode ? 'Paper: ON' : 'Paper'}
+          </button>
           {/* AI Bot toggle */}
           <button
             onClick={() => { setBotMode(b => !b); if (practiceMode) setPracticeMode(false) }}
@@ -646,9 +815,24 @@ export default function Trading() {
           )}
         </div>
 
-        {/* Practice mode fills the rest; bot mode shows bot dashboard; live mode shows chart grid */}
+        {/* Paper/Practice/Bot/Live mode switching */}
         {botMode ? (
           <BotDashboard />
+        ) : paperMode ? (
+          <PaperTradingView
+            symbol={activeSymbol}
+            prices={prices}
+            alpaca={alpaca}
+            layout={layout}
+            setLayout={setLayout}
+            slots={slots}
+            setSlots={setSlots}
+            activeSlot={activeSlot}
+            setActiveSlot={setActiveSlot}
+            starred={starred}
+            direction={direction}
+            onStar={toggleStar}
+          />
         ) : practiceMode ? (
           <PracticeMode initialSymbol={activeSymbol} onClose={() => setPracticeMode(false)} />
         ) : (
