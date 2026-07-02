@@ -56,12 +56,16 @@ function AuthHandler() {
     }
     setUser(u)
 
-    try {
-      const plan = await getUserPlan(supaUser.id) as Plan
-      setUserPlan(plan)
-    } catch {
-      if (supaUser.email === ADMIN_EMAIL) setUserPlan('admin')
-      else setUserPlan('free')
+    // Admin email always gets admin plan — never overridden by Supabase value
+    if (supaUser.email === ADMIN_EMAIL) {
+      setUserPlan('admin')
+    } else {
+      try {
+        const plan = await getUserPlan(supaUser.id) as Plan
+        setUserPlan(plan)
+      } catch {
+        setUserPlan('free')
+      }
     }
 
     // Ensure every signed-in user has a row in user_plans so admin can see them
