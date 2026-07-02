@@ -87,11 +87,20 @@ export default function AuthPage() {
   const handleGoogleLogin = async () => {
     setGoogleLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-    options: { redirectTo: `${window.location.origin}/app/dashboard` },
-    })
-    if (error) { setError(error.message); setGoogleLoading(false) }
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: `${window.location.origin}/app/dashboard` },
+      })
+      if (error) {
+        setError(`Google sign-in failed: ${error.message}. Use email/password instead.`)
+        setGoogleLoading(false)
+      }
+      // On success the page redirects — googleLoading stays true intentionally
+    } catch {
+      setError('Google sign-in unavailable. Use email/password login instead.')
+      setGoogleLoading(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

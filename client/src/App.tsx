@@ -64,6 +64,16 @@ function AuthHandler() {
       else setUserPlan('free')
     }
 
+    // Ensure every signed-in user has a row in user_plans so admin can see them
+    // This is a no-op if the row already exists (upsert with ignoreDuplicates)
+    try {
+      await supabase.from('user_plans').upsert(
+        { user_id: supaUser.id, plan: supaUser.email === ADMIN_EMAIL ? 'admin' : 'free',
+          notes: supaUser.user_metadata?.full_name || supaUser.email },
+        { onConflict: 'user_id', ignoreDuplicates: true }
+      )
+    } catch { /* non-blocking */ }
+
     // Fetch trades from Supabase so Journal + Dashboard can display them
     try {
       const { data } = await supabase

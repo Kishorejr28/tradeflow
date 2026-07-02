@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { botApi, BotSummary } from '@/lib/botApi'
 import { supabase } from '@/lib/supabase'
-import { RefreshCw, WifiOff, Activity, X, Wifi } from 'lucide-react'
+import { RefreshCw, WifiOff, Activity, X, Wifi, Lock, Zap, Terminal, Github, ExternalLink } from 'lucide-react'
+import { useAppStore } from '@/store/appStore'
+import { useNavigate } from 'react-router-dom'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
@@ -426,8 +428,153 @@ async function fetchFromSupabase(): Promise<{ summary: Partial<BotSummary>; sour
   }
 }
 
+// ── Plan gate — shown to free/trader users ────────────────────────────────────
+function AiBotUpgradeWall() {
+  const navigate = useNavigate()
+  return (
+    <div className="flex flex-col items-center justify-center h-full min-h-[80vh] px-6">
+      <div className="max-w-2xl w-full">
+        {/* Hero */}
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-500/20 border border-brand-500/30 mb-5">
+            <Lock className="w-8 h-8 text-brand-400" />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">AI Trading Bot</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-lg max-w-md mx-auto">
+            Automate your strategy with a real Alpaca paper trading bot. Available on <strong className="text-brand-500">Edge Pro</strong>.
+          </p>
+        </div>
+
+        {/* Feature list */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+          {[
+            { icon:'🤖', title:'7 Active Strategies',   desc:'EMA crossover, BB mean reversion, ICT FVG, momentum breakout & more' },
+            { icon:'📊', title:'Live Market Regime',     desc:'ADX-based regime detection — only trades trending markets with trend strategies' },
+            { icon:'🛡️', title:'Risk Management',       desc:'1% risk per trade, 3% daily loss limit, 10% drawdown circuit breaker' },
+            { icon:'📓', title:'Auto Journal Sync',      desc:'Every bot trade appears in your TradeFlow journal automatically' },
+            { icon:'📱', title:'Telegram Alerts',        desc:'Real-time notifications on your phone for every trade open & close' },
+            { icon:'📈', title:'Full Analytics',         desc:'Equity curve, win rate, profit factor, strategy scoring' },
+          ].map(f => (
+            <div key={f.title} className="flex items-start gap-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
+              <span className="text-2xl shrink-0">{f.icon}</span>
+              <div>
+                <p className="font-semibold text-gray-900 dark:text-white text-sm">{f.title}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{f.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Demo preview */}
+        <div className="rounded-2xl border border-brand-500/20 bg-gradient-to-br from-brand-500/5 to-purple-500/5 p-6 mb-8">
+          <p className="text-xs font-semibold text-brand-500 uppercase tracking-wide mb-3">What you'll see</p>
+          <div className="flex items-center gap-4 text-sm flex-wrap">
+            {['$99,858 Equity','12 Trades · 41.7% WR','BTC/USD TRENDING ADX 29','PAXG LONG +$99 (+0.99%)'].map(s => (
+              <span key={s} className="px-3 py-1.5 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-mono text-xs">{s}</span>
+            ))}
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <button
+            onClick={() => navigate('/app/dashboard')}
+            className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm transition shadow-lg shadow-brand-500/25">
+            <Zap className="w-4 h-4" /> Upgrade to Edge Pro
+          </button>
+          <a
+            href="https://github.com/Kishorejr28/tradeflow"
+            target="_blank" rel="noreferrer"
+            className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 font-semibold text-sm transition">
+            <Github className="w-4 h-4" /> View Source
+          </a>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Pro setup guide — shown to pro users who haven't configured their bot ──────
+function AiBotSetupGuide() {
+  return (
+    <div className="flex flex-col items-center justify-center h-full min-h-[80vh] px-6">
+      <div className="max-w-2xl w-full">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 mb-5">
+            <Terminal className="w-8 h-8 text-emerald-400" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Set up your AI Bot</h1>
+          <p className="text-gray-500 dark:text-gray-400">Your Edge Pro plan includes the bot. Follow these steps to get it running.</p>
+        </div>
+
+        <div className="space-y-4">
+          {[
+            {
+              step: '1', title: 'Get Alpaca Paper Trading Keys',
+              desc: 'Sign up free at alpaca.markets → Paper Trading → API Keys. Copy your API Key ID and Secret Key.',
+              link: 'https://alpaca.markets', linkLabel: 'alpaca.markets →',
+            },
+            {
+              step: '2', title: 'Download the bot',
+              desc: 'Clone or download the TradeFlow bot repository to your computer.',
+              code: 'git clone https://github.com/Kishorejr28/tradeflow.git',
+            },
+            {
+              step: '3', title: 'Configure .env',
+              desc: 'Inside the trading_bot folder, copy .env.example to .env and fill in your Alpaca keys + your Supabase URL/service key.',
+              code: 'cp .env.example .env',
+            },
+            {
+              step: '4', title: 'Install & run',
+              desc: 'Install Python 3.10+, install requirements, then start both the bot and the API server.',
+              code: 'pip install -r requirements.txt\npython -m bot.main\npython api/bot_api.py',
+            },
+            {
+              step: '5', title: 'Come back here',
+              desc: 'Once both processes are running, refresh this page. Your live bot dashboard will appear.',
+            },
+          ].map(s => (
+            <div key={s.step} className="flex gap-4 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
+              <div className="w-8 h-8 rounded-full bg-brand-500 text-white flex items-center justify-center text-sm font-bold shrink-0">{s.step}</div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-gray-900 dark:text-white text-sm">{s.title}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{s.desc}</p>
+                {s.code && (
+                  <pre className="mt-2 text-xs bg-gray-900 text-green-400 rounded-lg px-3 py-2 overflow-x-auto whitespace-pre-wrap">{s.code}</pre>
+                )}
+                {s.link && (
+                  <a href={s.link} target="_blank" rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-brand-500 hover:underline mt-1">
+                    {s.linkLabel} <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-center text-xs text-gray-400 mt-6">
+          Need help? The bot uses your own Alpaca paper account — no real money involved until you explicitly switch to live trading.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function AiBotPage() {
+  const { userPlan, user } = useAppStore()
+  const ADMIN_EMAIL = 'kishorejr28@gmail.com'
+  const isAdmin = userPlan === 'admin' || user?.email === ADMIN_EMAIL
+  const isPro   = userPlan === 'pro' || isAdmin
+
+  // Free/trader users see upgrade wall
+  if (!isPro) return <AiBotUpgradeWall />
+
+  return <AiBotPageInner />
+}
+
+function AiBotPageInner() {
   const [data,       setData]       = useState<BotSummary | null>(null)
   const [livePos,    setLivePos]    = useState<Record<string, any>>({})
   const [loading,    setLoading]    = useState(true)
@@ -505,32 +652,9 @@ export default function AiBotPage() {
     return () => clearInterval(id)
   }, [load])
 
-  // ── offline ──────────────────────────────────────────────────────────────
+  // ── offline — show setup guide for pro users ─────────────────────────────
   if (!loading && offline) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400 py-20 px-6">
-        <WifiOff size={40} className="text-slate-600" />
-        <p className="text-lg font-semibold text-white">AI Bot API Offline</p>
-        <p className="text-sm text-center max-w-md text-slate-400">
-          The bot API runs locally on your machine — it's not accessible from the deployed website.
-        </p>
-        <div className="bg-[#1a1f2e] border border-[#2a2f3e] rounded-xl p-5 max-w-md w-full text-sm">
-          <p className="text-white font-semibold mb-3">To see live bot data:</p>
-          <ol className="space-y-2 text-slate-400 list-decimal list-inside">
-            <li>Make sure the bot API is running on your PC:
-              <code className="block mt-1 bg-[#0e1117] px-3 py-1.5 rounded text-emerald-400 text-xs">python trading_bot/api/bot_api.py</code>
-            </li>
-            <li>Open TradeFlow on your local machine:
-              <code className="block mt-1 bg-[#0e1117] px-3 py-1.5 rounded text-blue-400 text-xs">http://localhost:5173</code>
-            </li>
-          </ol>
-          <p className="text-xs text-slate-500 mt-3">The deployed site (Vercel) can't reach your local port 8000.</p>
-        </div>
-        <button onClick={() => load(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition">
-          <RefreshCw size={14} /> Retry Connection
-        </button>
-      </div>
-    )
+    return <AiBotSetupGuide />
   }
 
   if (loading || !data) {
