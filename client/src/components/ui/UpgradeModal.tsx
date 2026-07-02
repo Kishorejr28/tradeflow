@@ -16,6 +16,7 @@ const FREE_FEATURES = [
 const PRO_FEATURES = [
   { label: 'Unlimited journal entries', locked: true },
   { label: 'Unlimited edge plans', locked: true },
+  { label: 'AI Trading Bot (Alpaca paper trading)', locked: true },
   { label: 'AI trade analysis & coaching', locked: true },
   { label: 'Prop firm challenge simulator', locked: true },
   { label: 'Monte Carlo stress testing', locked: true },

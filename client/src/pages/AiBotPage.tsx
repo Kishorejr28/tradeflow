@@ -1,9 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { botApi, BotSummary } from '@/lib/botApi'
 import { supabase } from '@/lib/supabase'
-import { RefreshCw, WifiOff, Activity, X, Wifi, Lock, Zap, Terminal, Github, ExternalLink } from 'lucide-react'
+import { RefreshCw, WifiOff, Activity, X, Wifi, Lock, Zap, Terminal, ExternalLink } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
-import { useNavigate } from 'react-router-dom'
+import UpgradeModal from '@/components/ui/UpgradeModal'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Cell, ResponsiveContainer, ReferenceLine,
 } from 'recharts'
@@ -430,9 +430,10 @@ async function fetchFromSupabase(): Promise<{ summary: Partial<BotSummary>; sour
 
 // ── Plan gate — shown to free/trader users ────────────────────────────────────
 function AiBotUpgradeWall() {
-  const navigate = useNavigate()
+  const [showUpgrade, setShowUpgrade] = useState(false)
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[80vh] px-6">
+      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
       <div className="max-w-2xl w-full">
         {/* Hero */}
         <div className="text-center mb-10">
@@ -476,18 +477,12 @@ function AiBotUpgradeWall() {
         </div>
 
         {/* CTA */}
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+        <div className="flex justify-center">
           <button
-            onClick={() => navigate('/app/dashboard')}
-            className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-semibold text-sm transition shadow-lg shadow-brand-500/25">
+            onClick={() => setShowUpgrade(true)}
+            className="flex items-center justify-center gap-2 px-10 py-4 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm transition shadow-lg shadow-brand-500/25">
             <Zap className="w-4 h-4" /> Upgrade to Edge Pro
           </button>
-          <a
-            href="https://github.com/Kishorejr28/tradeflow"
-            target="_blank" rel="noreferrer"
-            className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 font-semibold text-sm transition">
-            <Github className="w-4 h-4" /> View Source
-          </a>
         </div>
       </div>
     </div>

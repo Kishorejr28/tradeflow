@@ -102,6 +102,15 @@ const FEATURE_SECTIONS = [
     bullets: ['15 real ambient sounds', 'Interval bells + timer', 'Streak tracking + progress', 'Intention & daily focus setting'],
     chart: 'sanctuary',
   },
+  {
+    tag: 'AI Trading Bot', tagColor: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+    heading: 'Automate your\nstrategy.',
+    headingGrad: 'from-amber-400 to-orange-400',
+    body: 'A real Alpaca paper trading bot with 7 active strategies, ADX-based market regime detection, and full risk management. Every trade syncs to your journal automatically.',
+    bullets: ['EMA crossover, BB mean reversion, ICT FVG', 'ADX regime filter — only trades trending markets', '1% risk per trade · 10% drawdown circuit breaker', 'Live journal sync + Telegram alerts'],
+    chart: 'aibot',
+    proBadge: true,
+  },
 ]
 
 // ── Compact animated demo components (shown in feature sections) ─────────────
@@ -405,12 +414,79 @@ function SanctuaryDemo() {
   )
 }
 
+function AiBotDemo() {
+  const [tick, setTick] = useState(0)
+  const [equity, setEquity] = useState(99858)
+  const regimes = [
+    {sym:'BTC/USD', regime:'TRENDING', adx:29.1, col:'text-emerald-400'},
+    {sym:'ETH/USD', regime:'RANGING',  adx:24.6, col:'text-amber-400'},
+    {sym:'SOL/USD', regime:'RANGING',  adx:23.0, col:'text-amber-400'},
+  ]
+  useEffect(() => {
+    const id = setInterval(() => {
+      setTick(t => t + 1)
+      setEquity(e => parseFloat((e + (Math.random() - 0.45) * 3).toFixed(2)))
+    }, 1200)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <div className="rounded-xl bg-[#0b0b1a] border border-white/8 p-4 text-[10px]">
+      <div className="flex items-center justify-between mb-3">
+        <span className="font-bold text-white text-xs">AI Trading Bot</span>
+        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[9px] font-semibold">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block"/>RUNNING
+        </span>
+      </div>
+      <div className="flex justify-between mb-3">
+        <div>
+          <p className="text-gray-500">Equity</p>
+          <p className="text-white font-bold text-sm">${equity.toLocaleString()}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-gray-500">Realised P&L</p>
+          <p className="text-emerald-400 font-bold">+$683.13</p>
+        </div>
+      </div>
+      <p className="text-gray-500 uppercase tracking-wide mb-1.5 text-[9px] font-semibold">Market Regime</p>
+      <div className="space-y-1 mb-3">
+        {regimes.map(r => (
+          <div key={r.sym} className="flex items-center justify-between px-2 py-1 rounded bg-white/3 border border-white/5">
+            <span className="text-gray-300 font-medium">{r.sym}</span>
+            <div className="flex items-center gap-2">
+              <span className={`font-bold ${r.col}`}>{r.regime}</span>
+              <span className="text-gray-600">ADX {r.adx}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="px-2 py-2 rounded-lg bg-emerald-500/8 border border-emerald-500/20">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className="px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[9px]">LONG</span>
+            <span className="text-white font-medium">PAXG/USD</span>
+          </div>
+          <span className="text-emerald-400 font-bold">+${(86 + tick % 8).toFixed(2)}</span>
+        </div>
+        <div className="mt-1.5 h-1 bg-white/5 rounded-full overflow-hidden">
+          <motion.div className="h-full bg-emerald-500 rounded-full"
+            animate={{ width: `${Math.min(100, 90 + tick % 10)}%` }}
+            transition={{ duration: 0.5 }}/>
+        </div>
+        <div className="flex justify-between text-gray-600 mt-0.5">
+          <span>SL $4003</span><span>{Math.min(100, 90 + tick % 10)}% to TP</span><span>TP $4087</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ChartForSection({ type }: { type: string }) {
   if (type === 'replay')    return <ReplayDemo />
   if (type === 'journal')   return <JournalDemo />
   if (type === 'equity')    return <EquityDemo />
   if (type === 'edge')      return <EdgeDemo />
   if (type === 'sanctuary') return <SanctuaryDemo />
+  if (type === 'aibot')     return <AiBotDemo />
   return null
 }
 
@@ -710,6 +786,9 @@ export default function PremiumLandingPage() {
                 <Reveal delay={0.1}>
                   <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold mb-8 ${sec.tagColor}`}>
                     {sec.tag}
+                    {(sec as any).proBadge && (
+                      <span className="ml-1 px-1.5 py-0.5 rounded bg-amber-500 text-white text-[9px] font-bold">PRO</span>
+                    )}
                   </div>
                 </Reveal>
 
