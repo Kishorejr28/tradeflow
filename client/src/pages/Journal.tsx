@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, getDay } from 'date-fns'
-import { ChevronLeft, ChevronRight, Plus, X, Mic, FileText } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, Mic, FileText, RefreshCw } from 'lucide-react'
 import { useIsDemo } from '@/hooks/useIsDemo'
 import { useAppStore } from '@/store/appStore'
 import AddTradeModal, { type ManualTrade } from '@/components/ui/AddTradeModal'
 import AddJournalModal from '@/components/ui/AddJournalModal'
+import { supabase } from '@/lib/supabase'
 
 const EMOTIONS = [
   { emoji: '😊', label: 'Happy' },
@@ -115,12 +116,35 @@ function PostTradePopup({ trade, onClose }: { trade: PostTradeModal; onClose: ()
 
 export default function Journal() {
   const isDemo = useIsDemo()
-  const { addLocalTrade, addLocalNote, localTrades, localNotes, trades } = useAppStore()
+  const { addLocalTrade, addLocalNote, localTrades, localNotes, trades, setTrades, user } = useAppStore()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [showDemo, setShowDemo] = useState(false)
   const [selected, setSelected] = useState<typeof DEMO_ENTRIES[0] | null>(null)
   const [showAddTrade, setShowAddTrade] = useState(false)
   const [showAddJournal, setShowAddJournal] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+
+  // Fetch latest trades from Supabase — runs on mount + every 60s
+  const refreshTrades = async () => {
+    if (!user?.id) return
+    setSyncing(true)
+    try {
+      const { data } = await supabase
+        .from('trades')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('entry_time', { ascending: false })
+        .limit(500)
+      if (data) setTrades(data as any)
+    } catch { /* non-blocking */ }
+    finally { setSyncing(false) }
+  }
+
+  useEffect(() => {
+    refreshTrades()
+    const id = setInterval(refreshTrades, 60_000)
+    return () => clearInterval(id)
+  }, [user?.id])
 
   // Merge demo entries with user entries for display
   const demoEntries = isDemo ? DEMO_ENTRIES : []
@@ -176,7 +200,15 @@ export default function Journal() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Journal</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Review your trades, emotions, and patterns</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+            Review your trades, emotions, and patterns
+            {trades.length > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                · <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"/>
+                {trades.filter((t:any) => t.status === 'closed').length} bot trades synced
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex gap-2">
           {isDemo && (
@@ -187,6 +219,12 @@ export default function Journal() {
             Preview post-trade popup
           </button>
           )}
+          <button onClick={() => refreshTrades()} disabled={syncing}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition disabled:opacity-50"
+            title="Sync bot trades from Supabase">
+            <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing…' : 'Sync'}
+          </button>
           <button onClick={() => setShowAddTrade(true)} className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition">
             <Plus className="w-4 h-4" /> Add Trade
           </button>

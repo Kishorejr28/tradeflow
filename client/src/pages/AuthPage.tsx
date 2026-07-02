@@ -69,8 +69,8 @@ export default function AuthPage() {
 
   // Local credentials — all bypass Supabase, work offline
   const LOCAL_CREDS: Record<string, { password: string; name: string; plan: 'free'|'pro'|'admin'; id: string; dest: string }> = {
-    'kishore':                    { password:'TradeFlow@2026', name:'Kishore JR',  plan:'admin', id:'admin-local',      dest:'/admin' },
-    'kishorejr28@gmail.com':      { password:'TradeFlow@2026', name:'Kishore JR',  plan:'admin', id:'admin-local',      dest:'/admin' },
+    'kishore':                    { password:'TradeFlow@2026', name:'Kishore JR',  plan:'admin', id:'295842bd-d60d-4411-af01-5e934112d0db', dest:'/admin' },
+    'kishorejr28@gmail.com':      { password:'TradeFlow@2026', name:'Kishore JR',  plan:'admin', id:'295842bd-d60d-4411-af01-5e934112d0db', dest:'/admin' },
     'user_trader@tradeflow.app':  { password:'Trader@123',     name:'Trader User', plan:'free',  id:'dummy-trader-001', dest:'/app/dashboard' },
     'trader_test@tradeflow.app':  { password:'Trader@123',     name:'Trader User', plan:'free',  id:'dummy-trader-001', dest:'/app/dashboard' },
     'user_pro@tradeflow.app':     { password:'ProUser@123',    name:'Pro User',    plan:'pro',   id:'dummy-pro-001',    dest:'/app/dashboard' },
