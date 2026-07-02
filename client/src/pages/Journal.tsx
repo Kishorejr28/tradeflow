@@ -188,7 +188,11 @@ export default function Journal() {
   useEffect(() => {
     refreshTrades()
     const id = setInterval(refreshTrades, 60_000)
-    return () => clearInterval(id)
+    // Also refresh when Supabase auth session becomes available
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') refreshTrades()
+    })
+    return () => { clearInterval(id); subscription.unsubscribe() }
   }, [user?.id])
 
   // Merge demo entries with user entries for display
