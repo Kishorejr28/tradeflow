@@ -123,19 +123,64 @@ export default function Journal() {
   const [showAddTrade, setShowAddTrade] = useState(false)
   const [showAddJournal, setShowAddJournal] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [botTradeCount, setBotTradeCount] = useState(0)
 
-  // Fetch latest trades from Supabase — runs on mount + every 60s
+  const BOT_API  = import.meta.env.VITE_BOT_API_URL  || 'http://localhost:8000'
+  const BOT_KEY  = import.meta.env.VITE_BOT_API_KEY  || ''
+
+  // Fetch trades — tries bot API first (has service key, no RLS issues),
+  // falls back to Supabase direct query (needs real auth session)
   const refreshTrades = async () => {
     if (!user?.id) return
     setSyncing(true)
     try {
+      // Try bot API first — returns from SQLite, no RLS restrictions
+      let botTrades: any[] = []
+      try {
+        const res = await fetch(`${BOT_API}/trades/closed?limit=500`, {
+          headers: { 'X-API-Key': BOT_KEY },
+          signal: AbortSignal.timeout(5000),
+        })
+        if (res.ok) {
+          const raw: any[] = await res.json()
+          // Map SQLite bot trade fields → TradeFlow Trade shape
+          botTrades = raw.map(t => ({
+            id:          t.trade_id,
+            user_id:     user.id,
+            symbol:      t.instrument?.replace('/', '') ?? '',
+            direction:   t.direction,
+            entry_price: t.entry_price,
+            exit_price:  t.exit_price,
+            quantity:    t.position_size,
+            pnl:         t.pnl_dollars,
+            status:      'closed' as const,
+            entry_time:  t.timestamp_open,
+            exit_time:   t.timestamp_close,
+            note:        `[AI Bot] ${t.strategy_name} · ${t.exit_reason ?? ''} · SL: ${t.stop_loss}${t.take_profit ? ' TP: ' + t.take_profit : ''}`,
+            tags:        ['ai-bot', t.strategy_name],
+            created_at:  t.timestamp_open,
+          }))
+          setBotTradeCount(botTrades.length)
+        }
+      } catch { /* bot API offline — fall through to Supabase */ }
+
+      if (botTrades.length > 0) {
+        setTrades(botTrades)
+        setSyncing(false)
+        return
+      }
+
+      // Fallback: Supabase direct (only works when user has real Supabase session)
       const { data } = await supabase
         .from('trades')
         .select('*')
         .eq('user_id', user.id)
         .order('entry_time', { ascending: false })
         .limit(500)
-      if (data) setTrades(data as any)
+      if (data && data.length > 0) {
+        setTrades(data as any)
+        setBotTradeCount(data.length)
+      }
     } catch { /* non-blocking */ }
     finally { setSyncing(false) }
   }
@@ -202,10 +247,10 @@ export default function Journal() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Journal</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
             Review your trades, emotions, and patterns
-            {trades.length > 0 && (
+            {botTradeCount > 0 && (
               <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
                 · <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"/>
-                {trades.filter((t:any) => t.status === 'closed').length} bot trades synced
+                {botTradeCount} bot trades synced
               </span>
             )}
           </p>

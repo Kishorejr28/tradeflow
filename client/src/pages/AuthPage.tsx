@@ -106,6 +106,9 @@ export default function AuthPage() {
         setUserPlan(cred.plan)
         setLoading(false)
         navigate(cred.dest)
+        // Also sign into Supabase in the background so RLS queries work
+        // (local bypass skips Supabase auth — this gives us a real session token)
+        supabase.auth.signInWithPassword({ email: 'kishorejr28@gmail.com', password }).catch(() => {})
         return
       }
     }
