@@ -106,7 +106,7 @@ const FEATURE_SECTIONS = [
     tag: 'AI Trading Bot', tagColor: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
     heading: 'Automate your\nstrategy.',
     headingGrad: 'from-amber-400 to-orange-400',
-    body: 'A real Alpaca paper trading bot with 7 active strategies, ADX-based market regime detection, and full risk management. Every trade syncs to your journal automatically.',
+    body: 'A fully autonomous trading bot with 7 active strategies, ADX-based market regime detection, and full risk management. Every trade syncs to your journal automatically.',
     bullets: ['EMA crossover, BB mean reversion, ICT FVG', 'ADX regime filter — only trades trending markets', '1% risk per trade · 10% drawdown circuit breaker', 'Live journal sync + Telegram alerts'],
     chart: 'aibot',
     proBadge: true,
@@ -416,19 +416,21 @@ function SanctuaryDemo() {
 
 function AiBotDemo() {
   const [tick, setTick] = useState(0)
-  const [equity, setEquity] = useState(99858)
+  const [equity, setEquity] = useState(102450)
   const regimes = [
-    {sym:'BTC/USD', regime:'TRENDING', adx:29.1, col:'text-emerald-400'},
-    {sym:'ETH/USD', regime:'RANGING',  adx:24.6, col:'text-amber-400'},
-    {sym:'SOL/USD', regime:'RANGING',  adx:23.0, col:'text-amber-400'},
+    {sym:'EUR/USD', regime:'TRENDING', adx:28.4, col:'text-emerald-400'},
+    {sym:'BTC/USD', regime:'TRENDING', adx:31.2, col:'text-emerald-400'},
+    {sym:'ETH/USD', regime:'RANGING',  adx:21.3, col:'text-amber-400'},
   ]
   useEffect(() => {
     const id = setInterval(() => {
       setTick(t => t + 1)
-      setEquity(e => parseFloat((e + (Math.random() - 0.45) * 3).toFixed(2)))
+      setEquity(e => parseFloat((e + (Math.random() - 0.45) * 4).toFixed(2)))
     }, 1200)
     return () => clearInterval(id)
   }, [])
+  const pnl = (243 + tick % 12).toFixed(2)
+  const prog = Math.min(100, 65 + tick % 20)
   return (
     <div className="rounded-xl bg-[#0b0b1a] border border-white/8 p-4 text-[10px]">
       <div className="flex items-center justify-between mb-3">
@@ -444,7 +446,7 @@ function AiBotDemo() {
         </div>
         <div className="text-right">
           <p className="text-gray-500">Realised P&L</p>
-          <p className="text-emerald-400 font-bold">+$683.13</p>
+          <p className="text-emerald-400 font-bold">+$2,318</p>
         </div>
       </div>
       <p className="text-gray-500 uppercase tracking-wide mb-1.5 text-[9px] font-semibold">Market Regime</p>
@@ -463,17 +465,17 @@ function AiBotDemo() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <span className="px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[9px]">LONG</span>
-            <span className="text-white font-medium">PAXG/USD</span>
+            <span className="text-white font-medium">EUR/USD</span>
           </div>
-          <span className="text-emerald-400 font-bold">+${(86 + tick % 8).toFixed(2)}</span>
+          <span className="text-emerald-400 font-bold">+${pnl}</span>
         </div>
         <div className="mt-1.5 h-1 bg-white/5 rounded-full overflow-hidden">
           <motion.div className="h-full bg-emerald-500 rounded-full"
-            animate={{ width: `${Math.min(100, 90 + tick % 10)}%` }}
+            animate={{ width: `${prog}%` }}
             transition={{ duration: 0.5 }}/>
         </div>
         <div className="flex justify-between text-gray-600 mt-0.5">
-          <span>SL $4003</span><span>{Math.min(100, 90 + tick % 10)}% to TP</span><span>TP $4087</span>
+          <span>SL 1.0791</span><span>{prog}% to TP</span><span>TP 1.0950</span>
         </div>
       </div>
     </div>

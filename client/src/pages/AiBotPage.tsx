@@ -428,33 +428,177 @@ async function fetchFromSupabase(): Promise<{ summary: Partial<BotSummary>; sour
   }
 }
 
+// ── Animated scrolling bot preview ────────────────────────────────────────────
+function BotPreviewScroll() {
+  // Three "screenshot" cards that simulate what the bot UI looks like
+  // All numbers are generic/fictional — not real account data
+  const cards = [
+    // Card 1 — Overview stats
+    <div className="shrink-0 w-72 rounded-xl bg-[#0e1117] border border-white/10 p-4 text-[11px]">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-white font-bold text-sm">Overview</span>
+        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[10px] font-semibold">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block"/> RUNNING
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        {[['Account Equity','$102,450'],['Realised P&L','+$2,450'],["Today's P&L",'+$318'],['Max Drawdown','1.2%']].map(([l,v]) => (
+          <div key={l} className="bg-white/5 rounded-lg p-2.5">
+            <p className="text-gray-500 text-[9px] uppercase tracking-wide">{l}</p>
+            <p className={`font-bold mt-0.5 ${v.startsWith('+') ? 'text-emerald-400' : v.includes('%') && !v.startsWith('+') ? 'text-amber-400' : 'text-white'}`}>{v}</p>
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-3 text-center text-[10px]">
+        {[['Trades','28'],['Win Rate','57%'],['Profit Factor','2.1']].map(([l,v]) => (
+          <div key={l} className="flex-1 bg-white/3 rounded-lg py-2">
+            <p className="text-gray-500">{l}</p>
+            <p className="text-white font-bold">{v}</p>
+          </div>
+        ))}
+      </div>
+    </div>,
+
+    // Card 2 — Market regime
+    <div className="shrink-0 w-72 rounded-xl bg-[#0e1117] border border-white/10 p-4 text-[11px]">
+      <p className="text-white font-bold text-sm mb-3">Market Regime</p>
+      <div className="space-y-1.5">
+        {[
+          { sym:'EUR/USD', regime:'TRENDING',  adx:28.4, col:'text-emerald-400' },
+          { sym:'BTC/USD', regime:'TRENDING',  adx:31.2, col:'text-emerald-400' },
+          { sym:'GBP/USD', regime:'RANGING',   adx:18.7, col:'text-amber-400' },
+          { sym:'ETH/USD', regime:'RANGING',   adx:21.3, col:'text-amber-400' },
+          { sym:'XAU/USD', regime:'VOLATILE',  adx:35.1, col:'text-red-400' },
+        ].map(r => (
+          <div key={r.sym} className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/4 border border-white/5">
+            <span className="text-gray-300 font-medium w-16">{r.sym}</span>
+            <span className={`font-bold text-[10px] ${r.col}`}>{r.regime}</span>
+            <span className="text-gray-600 text-[10px]">ADX {r.adx}</span>
+          </div>
+        ))}
+      </div>
+    </div>,
+
+    // Card 3 — Open position
+    <div className="shrink-0 w-72 rounded-xl bg-[#0e1117] border border-white/10 p-4 text-[11px]">
+      <p className="text-white font-bold text-sm mb-3">Open Positions (2)</p>
+      {[
+        { sym:'EUR/USD', dir:'LONG',  entry:'1.0842', cur:'1.0891', pnl:'+$143', pct:'+0.45%', prog:72 },
+        { sym:'BTC/USD', dir:'LONG',  entry:'61,200', cur:'62,450', pnl:'+$208', pct:'+2.04%', prog:55 },
+      ].map(p => (
+        <div key={p.sym} className="mb-3 last:mb-0 p-2.5 rounded-lg bg-white/4 border border-white/5">
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-1.5">
+              <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[9px]">{p.dir}</span>
+              <span className="text-white font-medium">{p.sym}</span>
+            </div>
+            <span className="text-emerald-400 font-bold">{p.pnl}</span>
+          </div>
+          <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${p.prog}%` }}/>
+          </div>
+          <div className="flex justify-between text-gray-600 mt-1">
+            <span>Entry {p.entry}</span><span>{p.prog}% to TP</span>
+          </div>
+        </div>
+      ))}
+    </div>,
+
+    // Card 4 — Strategy analytics
+    <div className="shrink-0 w-72 rounded-xl bg-[#0e1117] border border-white/10 p-4 text-[11px]">
+      <p className="text-white font-bold text-sm mb-3">Strategy Performance</p>
+      <div className="space-y-2">
+        {[
+          { name:'EMA Crossover',      wr:'63%', pf:'2.4', score:'GOOD',    trades:12 },
+          { name:'BB Mean Reversion',  wr:'55%', pf:'1.8', score:'GOOD',    trades:9  },
+          { name:'ICT FVG',            wr:'44%', pf:'1.2', score:'NEUTRAL', trades:7  },
+        ].map(s => (
+          <div key={s.name} className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-white/4 border border-white/5">
+            <div>
+              <p className="text-gray-200 font-medium">{s.name}</p>
+              <p className="text-gray-600 text-[9px]">{s.trades} trades</p>
+            </div>
+            <div className="flex items-center gap-3 text-right">
+              <div>
+                <p className="text-gray-500 text-[9px]">WR</p>
+                <p className="text-white font-bold">{s.wr}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-[9px]">PF</p>
+                <p className="text-emerald-400 font-bold">{s.pf}</p>
+              </div>
+              <span className={`text-[9px] font-bold ${s.score === 'GOOD' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                {s.score === 'GOOD' ? '🟢' : '🟡'}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>,
+
+    // Card 5 — Trade log
+    <div className="shrink-0 w-72 rounded-xl bg-[#0e1117] border border-white/10 p-4 text-[11px]">
+      <p className="text-white font-bold text-sm mb-3">Recent Trades</p>
+      <div className="space-y-1.5">
+        {[
+          { sym:'GBP/JPY', dir:'LONG',  pnl:'+$312', reason:'target_hit', time:'2h ago' },
+          { sym:'EUR/USD', dir:'SHORT', pnl:'-$89',  reason:'stop_hit',   time:'5h ago' },
+          { sym:'ETH/USD', dir:'LONG',  pnl:'+$178', reason:'target_hit', time:'8h ago' },
+          { sym:'BTC/USD', dir:'LONG',  pnl:'+$441', reason:'target_hit', time:'1d ago' },
+        ].map(t => (
+          <div key={t.time+t.sym} className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/4">
+            <div className="flex items-center gap-1.5">
+              <span className={`px-1 py-0.5 rounded text-[9px] font-bold ${t.dir === 'LONG' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>{t.dir}</span>
+              <span className="text-gray-300">{t.sym}</span>
+            </div>
+            <span className={`font-bold ${t.pnl.startsWith('+') ? 'text-emerald-400' : 'text-red-400'}`}>{t.pnl}</span>
+            <span className="text-gray-600">{t.time}</span>
+          </div>
+        ))}
+      </div>
+    </div>,
+  ]
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-gradient-to-br from-brand-500/5 to-purple-500/5 py-5">
+      <p className="text-xs font-semibold text-brand-500 uppercase tracking-wide text-center mb-4">Live dashboard preview</p>
+      <div className="flex gap-4 px-4 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory">
+        {cards.map((card, i) => (
+          <div key={i} className="snap-start">{card}</div>
+        ))}
+      </div>
+      <p className="text-center text-[10px] text-gray-500 mt-3">← Scroll to explore →</p>
+    </div>
+  )
+}
+
 // ── Plan gate — shown to free/trader users ────────────────────────────────────
 function AiBotUpgradeWall() {
   const [showUpgrade, setShowUpgrade] = useState(false)
   return (
-    <div className="flex flex-col items-center justify-center h-full min-h-[80vh] px-6">
+    <div className="flex flex-col items-center justify-center h-full min-h-[80vh] px-6 py-10">
       {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
       <div className="max-w-2xl w-full">
         {/* Hero */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-500/20 border border-brand-500/30 mb-5">
             <Lock className="w-8 h-8 text-brand-400" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">AI Trading Bot</h1>
           <p className="text-gray-500 dark:text-gray-400 text-lg max-w-md mx-auto">
-            Automate your strategy with a real Alpaca paper trading bot. Available on <strong className="text-brand-500">Edge Pro</strong>.
+            Automate your strategy with a fully autonomous trading bot. Available on <strong className="text-brand-500">Edge Pro</strong>.
           </p>
         </div>
 
         {/* Feature list */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           {[
-            { icon:'🤖', title:'7 Active Strategies',   desc:'EMA crossover, BB mean reversion, ICT FVG, momentum breakout & more' },
-            { icon:'📊', title:'Live Market Regime',     desc:'ADX-based regime detection — only trades trending markets with trend strategies' },
-            { icon:'🛡️', title:'Risk Management',       desc:'1% risk per trade, 3% daily loss limit, 10% drawdown circuit breaker' },
-            { icon:'📓', title:'Auto Journal Sync',      desc:'Every bot trade appears in your TradeFlow journal automatically' },
-            { icon:'📱', title:'Telegram Alerts',        desc:'Real-time notifications on your phone for every trade open & close' },
-            { icon:'📈', title:'Full Analytics',         desc:'Equity curve, win rate, profit factor, strategy scoring' },
+            { icon:'🤖', title:'7 Active Strategies',  desc:'EMA crossover, BB mean reversion, ICT FVG, momentum breakout & more' },
+            { icon:'📊', title:'Live Market Regime',    desc:'ADX-based detection — only trades in the right market conditions' },
+            { icon:'🛡️', title:'Built-in Risk Rules',  desc:'1% risk per trade, daily loss limit, drawdown circuit breaker' },
+            { icon:'📓', title:'Auto Journal Sync',     desc:'Every bot trade appears in your TradeFlow journal automatically' },
+            { icon:'📱', title:'Telegram Alerts',       desc:'Real-time notifications on your phone for every trade event' },
+            { icon:'📈', title:'Full Analytics',        desc:'Equity curve, win rate, profit factor, per-strategy scoring' },
           ].map(f => (
             <div key={f.title} className="flex items-start gap-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
               <span className="text-2xl shrink-0">{f.icon}</span>
@@ -466,15 +610,8 @@ function AiBotUpgradeWall() {
           ))}
         </div>
 
-        {/* Demo preview */}
-        <div className="rounded-2xl border border-brand-500/20 bg-gradient-to-br from-brand-500/5 to-purple-500/5 p-6 mb-8">
-          <p className="text-xs font-semibold text-brand-500 uppercase tracking-wide mb-3">What you'll see</p>
-          <div className="flex items-center gap-4 text-sm flex-wrap">
-            {['$99,858 Equity','12 Trades · 41.7% WR','BTC/USD TRENDING ADX 29','PAXG LONG +$99 (+0.99%)'].map(s => (
-              <span key={s} className="px-3 py-1.5 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-mono text-xs">{s}</span>
-            ))}
-          </div>
-        </div>
+        {/* Scrolling live preview */}
+        <div className="mb-8"><BotPreviewScroll /></div>
 
         {/* CTA */}
         <div className="flex justify-center">
@@ -492,7 +629,7 @@ function AiBotUpgradeWall() {
 // ── Pro setup guide — shown to pro users who haven't configured their bot ──────
 function AiBotSetupGuide() {
   return (
-    <div className="flex flex-col items-center justify-center h-full min-h-[80vh] px-6">
+    <div className="flex flex-col items-center justify-center h-full min-h-[80vh] px-6 py-10">
       <div className="max-w-2xl w-full">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 mb-5">
@@ -505,19 +642,17 @@ function AiBotSetupGuide() {
         <div className="space-y-4">
           {[
             {
-              step: '1', title: 'Get Alpaca Paper Trading Keys',
-              desc: 'Sign up free at alpaca.markets → Paper Trading → API Keys. Copy your API Key ID and Secret Key.',
-              link: 'https://alpaca.markets', linkLabel: 'alpaca.markets →',
+              step: '1', title: 'Get Paper Trading API Keys',
+              desc: 'Sign up for a free paper trading account to get your API keys. No real money needed — practice with virtual funds first.',
             },
             {
-              step: '2', title: 'Download the bot',
-              desc: 'Clone or download the TradeFlow bot repository to your computer.',
-              code: 'git clone https://github.com/Kishorejr28/tradeflow.git',
+              step: '2', title: 'Download the TradeFlow Bot',
+              desc: 'Contact support to receive the bot package. You\'ll get a zip file with everything pre-configured.',
             },
             {
-              step: '3', title: 'Configure .env',
-              desc: 'Inside the trading_bot folder, copy .env.example to .env and fill in your Alpaca keys + your Supabase URL/service key.',
-              code: 'cp .env.example .env',
+              step: '3', title: 'Configure your keys',
+              desc: 'Open the .env file in the bot folder and fill in your paper trading API key and secret, plus your TradeFlow account ID.',
+              code: 'TRADING_API_KEY=your_key_here\nTRADING_SECRET=your_secret_here\nTRADEFLOW_USER_ID=your_id',
             },
             {
               step: '4', title: 'Install & run',
@@ -526,7 +661,7 @@ function AiBotSetupGuide() {
             },
             {
               step: '5', title: 'Come back here',
-              desc: 'Once both processes are running, refresh this page. Your live bot dashboard will appear.',
+              desc: 'Once both processes are running, refresh this page. Your live bot dashboard will appear automatically.',
             },
           ].map(s => (
             <div key={s.step} className="flex gap-4 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700">
@@ -534,14 +669,8 @@ function AiBotSetupGuide() {
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900 dark:text-white text-sm">{s.title}</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{s.desc}</p>
-                {s.code && (
-                  <pre className="mt-2 text-xs bg-gray-900 text-green-400 rounded-lg px-3 py-2 overflow-x-auto whitespace-pre-wrap">{s.code}</pre>
-                )}
-                {s.link && (
-                  <a href={s.link} target="_blank" rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-brand-500 hover:underline mt-1">
-                    {s.linkLabel} <ExternalLink className="w-3 h-3" />
-                  </a>
+                {(s as any).code && (
+                  <pre className="mt-2 text-xs bg-gray-900 text-green-400 rounded-lg px-3 py-2 overflow-x-auto whitespace-pre-wrap">{(s as any).code}</pre>
                 )}
               </div>
             </div>
@@ -549,7 +678,7 @@ function AiBotSetupGuide() {
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          Need help? The bot uses your own Alpaca paper account — no real money involved until you explicitly switch to live trading.
+          Need help? Contact support — setup takes about 10 minutes.
         </p>
       </div>
     </div>
@@ -690,7 +819,7 @@ function AiBotPageInner() {
           <Activity size={20} className="text-blue-400" />
           <div>
             <h1 className="text-base font-bold text-white">AI Trading Bot</h1>
-            <p className="text-xs text-slate-500">Alpaca Paper Trading · {strategies.length} strategies active</p>
+            <p className="text-xs text-slate-500">Paper Trading · {strategies.length} strategies active</p>
           </div>
           <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-400/10 border border-emerald-400/30 text-emerald-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> RUNNING
