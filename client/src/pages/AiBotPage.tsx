@@ -79,15 +79,27 @@ function TradeDetailTooltip({ trade, currPrice, pnl, pct }: {
 
 // ── Close button with confirm ─────────────────────────────────────────────────
 function CloseButton({
-  tradeId, instrument, unrealPnl, onClosed,
+  tradeId, instrument, unrealPnl, onClosed, apiAvailable,
 }: {
   tradeId: string
   instrument: string
   unrealPnl: number | null
   onClosed: () => void
+  apiAvailable: boolean
 }) {
   const [state, setState] = useState<'idle' | 'confirm' | 'closing' | 'done'>('idle')
   const [error, setError] = useState('')
+
+  // If local API not reachable (e.g. viewing on Vercel), show info instead
+  if (!apiAvailable) {
+    return (
+      <div className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] text-slate-500 border border-[#2a2f3e] rounded-lg bg-[#1a1f2e]"
+           title="Close is only available when viewing from your local machine (localhost:5173)">
+        <Lock size={10} />
+        Local only
+      </div>
+    )
+  }
 
   const handleClose = async () => {
     setState('closing')
@@ -1016,6 +1028,7 @@ function AiBotPageInner() {
                           instrument={t.instrument}
                           unrealPnl={unrealPnl}
                           onClosed={load}
+                          apiAvailable={dataSource === 'local'}
                         />
                       </div>
 
