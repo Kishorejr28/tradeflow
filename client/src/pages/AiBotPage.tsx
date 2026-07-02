@@ -431,12 +431,13 @@ export default function AiBotPage() {
   const [data,       setData]       = useState<BotSummary | null>(null)
   const [livePos,    setLivePos]    = useState<Record<string, any>>({})
   const [loading,    setLoading]    = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [offline,    setOffline]    = useState(false)
   const [dataSource, setDataSource] = useState<'local' | 'supabase' | 'none'>('none')
   const [tab,        setTab]        = useState<'overview' | 'analytics' | 'trades' | 'strategies' | 'log'>('overview')
 
-  const load = useCallback(async () => {
-    // Try local API first (full data, real-time)
+  const load = useCallback(async (manual = false) => {
+    if (manual) setRefreshing(true)
     const localResult = await botApi.getSummary()
 
     if (localResult) {
@@ -495,11 +496,12 @@ export default function AiBotPage() {
       }
     }
     setLoading(false)
+    setRefreshing(false)
   }, [])
 
   useEffect(() => {
     load()
-    const id = setInterval(load, 30_000)
+    const id = setInterval(() => load(), 30_000)
     return () => clearInterval(id)
   }, [load])
 
@@ -524,7 +526,7 @@ export default function AiBotPage() {
           </ol>
           <p className="text-xs text-slate-500 mt-3">The deployed site (Vercel) can't reach your local port 8000.</p>
         </div>
-        <button onClick={load} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition">
+        <button onClick={() => load(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition">
           <RefreshCw size={14} /> Retry Connection
         </button>
       </div>
@@ -586,8 +588,10 @@ export default function AiBotPage() {
             </span>
           )}
         </div>
-        <button onClick={load} className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[#1a1f2e] hover:bg-[#252b3b] border border-[#2a2f3e] rounded-lg text-slate-300 transition">
-          <RefreshCw size={12} /> Refresh
+        <button onClick={() => load(true)} disabled={refreshing}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[#1a1f2e] hover:bg-[#252b3b] border border-[#2a2f3e] rounded-lg text-slate-300 transition disabled:opacity-60">
+          <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
+          {refreshing ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
 
