@@ -1015,7 +1015,11 @@ function AiBotPageInner() {
                               </p>
                             </>
                           ) : (
-                            <p className="text-sm text-slate-500">loading…</p>
+                            // No live price yet — show entry as reference
+                            <div>
+                              <p className="text-sm text-slate-400">Fetching price…</p>
+                              <p className="text-xs text-slate-600">Entry ${entryP.toFixed(entryP > 100 ? 2 : 4)}</p>
+                            </div>
                           )}
                           <p className="text-[10px] text-slate-600 mt-0.5">
                             Entry ${entryP.toFixed(entryP > 100 ? 2 : 4)}
