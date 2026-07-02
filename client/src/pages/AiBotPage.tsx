@@ -50,28 +50,26 @@ function CloseButton({
     setError('')
     try {
       const symbol = instrument.replace('/', '')
-      // Use secure botApi (sends X-API-Key header)
-      const result = await fetch(
-        (import.meta.env.VITE_BOT_API_URL || 'http://localhost:8000') + `/alpaca/positions/${symbol}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'X-API-Key': import.meta.env.VITE_BOT_API_KEY || '',
-            'Content-Type': 'application/json',
-          },
-          signal: AbortSignal.timeout(10_000),
-        }
-      )
+      const botApiUrl = (import.meta.env.VITE_BOT_API_URL || 'http://localhost:8000')
+      const result = await fetch(`${botApiUrl}/alpaca/positions/${symbol}`, {
+        method: 'DELETE',
+        headers: {
+          'X-API-Key': import.meta.env.VITE_BOT_API_KEY || '',
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(8_000),
+      })
       if (result.ok) {
         setState('done')
         setTimeout(onClosed, 1000)
       } else {
         const d = await result.json().catch(() => ({}))
-        setError(d.detail || 'Close failed')
+        setError(d.detail || `Close failed (HTTP ${result.status})`)
         setState('confirm')
       }
     } catch (e: any) {
-      setError(e.message || 'Network error')
+      const isOffline = e.name === 'TypeError' || e.name === 'TimeoutError' || String(e.message).includes('fetch')
+      setError(isOffline ? 'Bot API offline — run: python api/bot_api.py' : (e.message || 'Close failed'))
       setState('confirm')
     }
   }
