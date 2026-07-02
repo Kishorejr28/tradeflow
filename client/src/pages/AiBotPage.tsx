@@ -35,6 +35,48 @@ function KpiCard({ label, value, sub, positive }: { label: string; value: string
   )
 }
 
+// ── Trade detail tooltip (hover on instrument name) ───────────────────────────
+function TradeDetailTooltip({ trade, currPrice, pnl, pct }: {
+  trade: any
+  currPrice: number | null
+  pnl: number | null
+  pct: number | null
+}) {
+  const lots = trade.position_size ? (trade.position_size / 100000) : null  // standard lot sizing
+  const notional = currPrice && trade.position_size
+    ? currPrice * trade.position_size
+    : null
+
+  return (
+    <div className="absolute left-0 top-full mt-1.5 z-50 w-64 bg-[#0e1117] border border-[#2a2f3e] rounded-xl shadow-2xl p-4 text-xs">
+      {/* Arrow */}
+      <div className="absolute -top-1.5 left-4 w-3 h-3 bg-[#0e1117] border-l border-t border-[#2a2f3e] rotate-45" />
+
+      <p className="font-semibold text-white mb-3">{trade.instrument} — {trade.strategy_name?.replace(/_/g, ' ')}</p>
+
+      <div className="space-y-1.5">
+        {[
+          ['Direction',      trade.direction?.toUpperCase(), trade.direction === 'long' ? 'text-emerald-400' : 'text-red-400'],
+          ['Quantity',       trade.position_size ? `${trade.position_size.toFixed(4)} units` : '—', 'text-white'],
+          ['Entry Price',    trade.entry_price ? `$${Number(trade.entry_price).toFixed(trade.entry_price > 100 ? 2 : 4)}` : '—', 'text-white'],
+          ['Current Price',  currPrice ? `$${currPrice.toFixed(currPrice > 100 ? 2 : 4)}` : '—', 'text-white'],
+          ['Unrealised P&L', pnl !== null ? `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}` : '—', pnl !== null ? (pnl >= 0 ? 'text-emerald-400' : 'text-red-400') : 'text-slate-400'],
+          ['Return %',       pct !== null ? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%` : '—', pct !== null ? (pct >= 0 ? 'text-emerald-400' : 'text-red-400') : 'text-slate-400'],
+          ['Stop Loss',      trade.stop_loss ? `$${Number(trade.stop_loss).toFixed(trade.stop_loss > 100 ? 2 : 4)}` : '—', 'text-red-400'],
+          ['Take Profit',    trade.take_profit ? `$${Number(trade.take_profit).toFixed(trade.take_profit > 100 ? 2 : 4)}` : 'Trailing', 'text-emerald-400'],
+          ['Notional Value', notional ? `$${notional.toFixed(2)}` : '—', 'text-slate-300'],
+          ['Opened',         trade.timestamp_open ? trade.timestamp_open.slice(0,16).replace('T',' ') + ' UTC' : '—', 'text-slate-400'],
+        ].map(([label, val, color]) => (
+          <div key={label as string} className="flex justify-between gap-2">
+            <span className="text-slate-500">{label}</span>
+            <span className={`font-medium ${color} text-right`}>{val}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Close button with confirm ─────────────────────────────────────────────────
 function CloseButton({
   tradeId, instrument, unrealPnl, onClosed,
@@ -926,14 +968,25 @@ function AiBotPageInner() {
                   return (
                     <div key={t.trade_id} className="px-4 py-3 border-b border-[#1e2330] last:border-0">
                       <div className="flex items-start justify-between gap-3">
-                        {/* Left */}
+                        {/* Left — instrument + hover tooltip */}
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           <span className={`text-xs font-bold px-2 py-0.5 rounded shrink-0 ${isLong ? 'bg-emerald-400/20 text-emerald-400' : 'bg-red-400/20 text-red-400'}`}>
                             {t.direction.toUpperCase()}
                           </span>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-white">{t.instrument}</p>
+                          <div className="relative min-w-0 group cursor-pointer">
+                            <p className="text-sm font-semibold text-white underline decoration-dotted decoration-slate-600 underline-offset-2">
+                              {t.instrument}
+                            </p>
                             <p className="text-xs text-slate-500">{t.strategy_name.replace(/_/g, ' ')}</p>
+                            {/* Hover tooltip */}
+                            <div className="hidden group-hover:block">
+                              <TradeDetailTooltip
+                                trade={t}
+                                currPrice={currPrice}
+                                pnl={unrealPnl}
+                                pct={unrealPct}
+                              />
+                            </div>
                           </div>
                         </div>
 
