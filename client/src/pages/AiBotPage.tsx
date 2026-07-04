@@ -386,6 +386,87 @@ function TradeList({ trades }: { trades: BotSummary['recent_closed'] }) {
   )
 }
 
+// ── Strategy Pause / Resume button ───────────────────────────────────────────
+function StrategyToggleButton({
+  strategyName, isPaused, apiAvailable, onToggled,
+}: {
+  strategyName: string
+  isPaused: boolean
+  apiAvailable: boolean
+  onToggled: () => void
+}) {
+  const [state, setState] = useState<'idle' | 'loading' | 'done'>('idle')
+  const [error, setError] = useState('')
+
+  const toggle = async () => {
+    if (!apiAvailable) return
+    setState('loading')
+    setError('')
+    try {
+      const action = isPaused ? 'resume' : 'pause'
+      const res = await fetch(
+        `${import.meta.env.VITE_BOT_API_URL || 'http://localhost:8000'}/strategies/${strategyName}/${action}`,
+        {
+          method: 'POST',
+          headers: { 'X-API-Key': import.meta.env.VITE_BOT_API_KEY || '' },
+          signal: AbortSignal.timeout(8000),
+        }
+      )
+      if (res.ok) {
+        setState('done')
+        setTimeout(() => { setState('idle'); onToggled() }, 1000)
+      } else {
+        const d = await res.json().catch(() => ({}))
+        setError(d.detail || 'Failed')
+        setState('idle')
+      }
+    } catch (e: any) {
+      setError('API offline')
+      setState('idle')
+    }
+  }
+
+  if (!apiAvailable) {
+    return (
+      <div className="flex items-center gap-1.5 mt-2 px-2.5 py-1.5 rounded-lg bg-[#0e1117] border border-[#2a2f3e] text-[10px] text-slate-600"
+           title="Only available when viewing from localhost">
+        <Lock size={10} /> Local only
+      </div>
+    )
+  }
+
+  if (state === 'done') {
+    return (
+      <div className="mt-2 text-xs text-emerald-400 font-semibold text-center py-1">
+        {isPaused ? '▶ Resumed' : '⏸ Paused'} ✓
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-2">
+      <button
+        onClick={toggle}
+        disabled={state === 'loading'}
+        className={`w-full py-1.5 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5 ${
+          isPaused
+            ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30'
+            : 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+        } disabled:opacity-50`}
+      >
+        {state === 'loading' ? (
+          <><RefreshCw size={11} className="animate-spin" /> Working…</>
+        ) : isPaused ? (
+          <><span>▶</span> Resume Strategy</>
+        ) : (
+          <><span>⏸</span> Pause Strategy</>
+        )}
+      </button>
+      {error && <p className="text-[10px] text-red-400 mt-1 text-center">{error}</p>}
+    </div>
+  )
+}
+
 // ── Fetch from Supabase (remote fallback) ────────────────────────────────────
 async function fetchFromSupabase(): Promise<{ summary: Partial<BotSummary>; source: 'supabase' } | null> {
   try {
@@ -1105,16 +1186,27 @@ function AiBotPageInner() {
               const icon   = paused ? '⏸' : SCORE_ICON[s.score] ?? '⚪'
               return (
                 <div key={s.strategy_name} className="bg-[#1a1f2e] border border-[#2a2f3e] rounded-xl p-4">
+                  {/* Header: name + score + pause/resume button */}
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-sm font-semibold text-white capitalize">{s.strategy_name.replace(/_/g,' ')}</p>
                     <span className={`text-xs font-bold ${color}`}>{icon} {score}</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 gap-2 text-xs mb-3">
                     <div><p className="text-slate-500">Win Rate (10)</p><p className="text-white font-medium">{((s.win_rate_last10??0)*100).toFixed(0)}%</p></div>
                     <div><p className="text-slate-500">Win Rate (all)</p><p className="text-white font-medium">{((s.win_rate_alltime??0)*100).toFixed(0)}%</p></div>
                     <div><p className="text-slate-500">Profit Factor</p><p className="text-white font-medium">{(s.profit_factor_last10??0).toFixed(2)}</p></div>
                     <div><p className="text-slate-500">Total Trades</p><p className="text-white font-medium">{s.total_trades??0}</p></div>
                   </div>
+
+                  {/* Pause / Resume button */}
+                  <StrategyToggleButton
+                    strategyName={s.strategy_name}
+                    isPaused={paused}
+                    apiAvailable={dataSource === 'local'}
+                    onToggled={load}
+                  />
                 </div>
               )
             }) : <p className="col-span-3 text-slate-500 text-center py-10">No strategy data — trades will appear after the first signal fires.</p>}
