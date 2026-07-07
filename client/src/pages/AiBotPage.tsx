@@ -1104,6 +1104,12 @@ function AiBotPageInner() {
                           )}
                           <p className="text-[10px] text-slate-600 mt-0.5">
                             Entry ${entryP.toFixed(entryP > 100 ? 2 : 4)}
+                            {t.position_size ? (
+                              <span className="text-slate-500">
+                                {' · '}{t.position_size.toFixed(t.position_size >= 1 ? 2 : 4)} units
+                                {currPrice && t.position_size ? ` · $${(currPrice * t.position_size).toFixed(2)} notional` : ''}
+                              </span>
+                            ) : null}
                           </p>
                         </div>
 
